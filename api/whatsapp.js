@@ -8,7 +8,7 @@ import { extract } from '../lib/extract.js';
 import { parseMessage, TEMPLATES } from '../lib/parse.js';
 
 const APP_URL = () => process.env.APP_URL || 'https://satvik-orders.vercel.app';
-const GRAPH = () => `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v23.0'}`;
+const GRAPH = () => `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v25.0'}`;
 
 /** "61412345678:Pranjal, 61498765432:Mum" -> { '61412345678': 'Pranjal', ... } */
 function senders() {
