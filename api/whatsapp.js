@@ -5,6 +5,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { store, readAll, upsert, nextOrderId, clean, orderTotal } from '../lib/store.js';
 import { extract } from '../lib/extract.js';
+import { parseMessage, TEMPLATES } from '../lib/parse.js';
 
 const APP_URL = () => process.env.APP_URL || 'https://satvik-orders.vercel.app';
 const GRAPH = () => `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v23.0'}`;
@@ -46,14 +47,13 @@ async function reply(to, body) {
 
 const money = (n) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const niceDate = (iso) => (iso ? new Date(iso + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : 'no date');
+const niceTime = (t) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`; };
 const todayBrisbane = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
 const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const validTime = (s) => /^\d{2}:\d{2}$/.test(String(s || ''));
 
-const HELP = 'Send me an order in plain words, for example:\n\n'
-  + '• "Catering for Mehta family, Sat 18 Oct 6:30pm, 80 guests at $22, delivery to 12 Smith St Sunnybank, menu: paneer tikka, dal, jeera rice, gulab jamun"\n\n'
-  + '• "Farsan for Ravi 0412 345 678, pickup Friday 4pm: 2kg sev khamani $28/kg, 1 box mohanthal $25"\n\n'
-  + '• "Paid $500 cash for #1004"';
+const HELP = 'Hi! To add an order, send *catering* or *farsan* and I\'ll send a form to copy, fill in and send back.\n\n'
+  + 'To record a payment, send e.g. *Paid $500 cash #1004*';
 
 async function handleText(from, who, text, msgId) {
   const s = await store();
@@ -62,7 +62,7 @@ async function handleText(from, who, text, msgId) {
   // Meta can deliver the same message twice; skip anything already saved.
   if (data.orders.some((o) => o.source === msgId) || data.payments.some((p) => p.source === msgId)) return;
 
-  if (/^\s*(help|hi|hello|\?)\s*$/i.test(text)) return reply(from, HELP);
+  if (/^\s*(help|hi|hello|hey|menu|\?)\s*$/i.test(text)) return reply(from, HELP);
 
   const paid = (id) => data.payments.filter((p) => p.orderId === id).reduce((t, p) => t + (Number(p.amount) || 0), 0);
   const openOrders = data.orders.filter((o) => o.status !== 'cancelled')
@@ -70,7 +70,14 @@ async function handleText(from, who, text, msgId) {
     .filter((o) => o.balance > 0.005).slice(-40);
 
   const today = todayBrisbane();
-  const res = await extract(text, { today, openOrders });
+  // Free rule-based reader by default; uses Claude only if an API key has been added.
+  const res = process.env.ANTHROPIC_API_KEY ? await extract(text, { today, openOrders }) : parseMessage(text, { today });
+
+  if (res.kind === 'template') {
+    if (res.which === 'both') { await reply(from, 'Copy the form you need, fill it in and send it back:'); await reply(from, TEMPLATES.catering); return reply(from, TEMPLATES.farsan); }
+    await reply(from, 'Copy this, fill it in and send it back:');
+    return reply(from, TEMPLATES[res.which]);
+  }
 
   if (res.kind === 'order' && res.order) {
     const o = clean('orders', {
@@ -81,7 +88,7 @@ async function handleText(from, who, text, msgId) {
       time: validTime(res.order.time) ? res.order.time : '',
       notes: [res.order.notes, `Added from WhatsApp by ${who}`].filter(Boolean).join('\n'),
     });
-    if (!o.customer || !o.date) return reply(from, `I couldn't add that yet. ${res.missing || 'Please include the customer name and the date.'} Send the whole order again with it.`);
+    if (!o.customer || !o.date) return reply(from, `I couldn't add that yet. ${res.missing || 'Please include the customer name and the date.'} Edit your message and send the whole order again.`);
     o.id = await nextOrderId(s);
     o.createdAt = new Date().toISOString();
     o.createdBy = `${who} (WhatsApp)`;
@@ -93,7 +100,7 @@ async function handleText(from, who, text, msgId) {
     const lines = [
       `✅ Order #${o.id} added`,
       `${o.customer} · ${o.type === 'farsan' ? 'Farsan/Sweet' : 'Catering'}`,
-      `${niceDate(o.date)}${o.time ? ' ' + o.time : ''} · ${o.fulfilment === 'delivery' ? 'Delivery' + (o.address ? ' to ' + o.address : '') : 'Pickup'}`,
+      `${niceDate(o.date)}${o.time ? ' ' + niceTime(o.time) : ''} · ${o.fulfilment === 'delivery' ? 'Delivery' + (o.address ? ' to ' + o.address : '') : 'Pickup'}`,
       what,
       `Total ${money(o.total)}`,
     ];
