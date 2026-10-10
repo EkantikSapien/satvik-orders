@@ -48,6 +48,25 @@ The order book for Satvik Catering: catering and farsan/sweet orders, a calendar
 
 Done. Share the link with the team. To let family see the receipts folder or sheet directly in Drive, share them from Google Drive as usual.
 
+## WhatsApp order bot (optional)
+
+Text an order to Satvik's WhatsApp number in plain words ("Farsan for Ravi, pickup Friday 4pm, 2kg sev khamani $28/kg") and it is added to the sheet; the bot replies with the order number and total. "Paid $500 cash for #1004" records a payment. Only numbers in `WHATSAPP_ALLOWED_NUMBERS` are listened to.
+
+1. **Anthropic API key** (reads the messages): <https://console.anthropic.com> → add a little credit → API Keys → create key.
+2. **Meta WhatsApp Cloud API** at <https://developers.facebook.com/apps>: create an app (use case "Connect with customers through WhatsApp"), open **WhatsApp → API Setup**. Note the **Phone number ID**, add each team member's mobile under **To** and confirm the code WhatsApp sends them.
+3. **Webhook**: WhatsApp → Configuration → Callback URL `https://<your-app>/api/whatsapp`, Verify token = the value you put in `WHATSAPP_VERIFY_TOKEN`. Subscribe to the **messages** field.
+4. **Permanent token**: Meta Business Settings → Users → System users → add one (Admin) → Add assets → your app → Generate token with `whatsapp_business_messaging` and `whatsapp_business_management`, expiry "Never".
+5. Vercel environment variables, then redeploy:
+
+| Name | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` (Secret) | from step 1 |
+| `WHATSAPP_TOKEN` (Secret) | from step 4 |
+| `WHATSAPP_APP_SECRET` (Secret) | App settings → Basic → App secret |
+| `WHATSAPP_VERIFY_TOKEN` (Secret) | any random text, same as in step 3 |
+| `WHATSAPP_PHONE_NUMBER_ID` | from step 2 |
+| `WHATSAPP_ALLOWED_NUMBERS` | `61412345678:Pranjal, 61498765432:Mum` (country code, no + or spaces) |
+
 ## Adding or removing people
 
 Edit `ALLOWED_EMAILS` in Vercel and redeploy. Removed people are signed out on their next visit.
