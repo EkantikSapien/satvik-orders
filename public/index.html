@@ -687,9 +687,17 @@ function sheetOrderForm(t){
 function lastPrice(name, unit){
   const n = (name||'').trim().toLowerCase(); if (!n) return null;
   const orders = S.orders.filter(o => o.type === 'farsan').sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  const std = unit === 'kg' && STANDARD_PRICES.find(p => p.match.test(n));
+  if (std) return std.perKg;
   for (const o of orders) for (const i of (o.items||[])) if ((i.name||'').trim().toLowerCase() === n && (i.unit||'kg') === unit && num(i.price) > 0) return i.price;
   return null;
 }
+// Standard farsan prices (AUD per kg). Keep in step with lib/parse.js.
+const STANDARD_PRICES = [
+  { match: /\bsev\s*kham/i, perKg: 30 },
+  { match: /\bvati\w*\s*(na\s*)?kham/i, perKg: 30 },
+  { match: /\bnylon\s*kham/i, perKg: 30 },
+];
 function readOrderForm(f){
   const fd = new FormData(f);
   const g = k => (fd.get(k) || '').toString().trim();
