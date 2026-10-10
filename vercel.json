@@ -2,7 +2,7 @@
   "functions": {
     "api/whatsapp.js": {
       "maxDuration": 60,
-      "includeFiles": "{node_modules/tesseract.js/**,node_modules/tesseract.js-core/**,node_modules/bmp-js/**,node_modules/is-url/**,node_modules/node-fetch/**,node_modules/whatwg-url/**,node_modules/tr46/**,node_modules/webidl-conversions/**,node_modules/regenerator-runtime/**,node_modules/wasm-feature-detect/**,node_modules/zlibjs/**,node_modules/idb-keyval/**,public/receipt-read.js}"
+      "includeFiles": "node_modules/**"
     }
   }
 }
