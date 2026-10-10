@@ -36,14 +36,16 @@ function validSignature(req, raw) {
   return expected.length === got.length && timingSafeEqual(expected, got);
 }
 
-async function reply(to, body) {
+async function send(to, msg) {
   const r = await fetch(`${GRAPH()}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { preview_url: false, body: body.slice(0, 4000) } }),
+    body: JSON.stringify({ messaging_product: 'whatsapp', to, ...msg }),
   });
   if (!r.ok) console.error('WhatsApp reply failed', r.status, await r.text());
 }
+const reply = (to, body) => send(to, { type: 'text', text: { preview_url: false, body: body.slice(0, 4000) } });
+const cut = (str, n) => (str.length > n ? str.slice(0, n - 1) + '…' : str);
 
 const money = (n) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const niceDate = (iso) => (iso ? new Date(iso + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : 'no date');
@@ -54,7 +56,76 @@ const validTime = (s) => /^\d{2}:\d{2}$/.test(String(s || ''));
 
 const HELP = 'Hi! To add an order, send *catering* or *farsan* and I\'ll send a form to copy, fill in and send back.\n\n'
   + 'To record a payment, send e.g. *Paid $500 cash #1004*\n\n'
-  + 'To mark orders fully paid: *paid in full #1004 #1006* or *paid in full before today*';
+  + 'To mark orders fully paid: *paid in full #1004 #1006* or *paid in full before today*\n\n'
+  + 'Send *owing* to pick from a list of orders still to be paid.';
+
+const paidFor = (data, id) => data.payments.filter((p) => p.orderId === id).reduce((t, p) => t + (Number(p.amount) || 0), 0);
+const owingOrders = (data) => data.orders
+  .filter((o) => o.status !== 'cancelled' && orderTotal(o) > 0)
+  .map((o) => ({ ...o, balance: Math.round((orderTotal(o) - paidFor(data, o.id)) * 100) / 100 }))
+  .filter((o) => o.balance > 0.005)
+  .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+
+/** WhatsApp list message (max 10 rows): the orders still owing, oldest first, with a "More" row to page on. */
+async function sendOwingList(to, data, offset = 0) {
+  const all = owingOrders(data);
+  if (!all.length) return reply(to, '🎉 Nothing owing. Every order is fully paid.');
+  const more = all.length - offset > 10;
+  const page = all.slice(offset, offset + (more ? 9 : 10));
+  const rows = page.map((o) => ({
+    id: `pay:${o.id}`,
+    title: cut(`#${o.id} ${o.customer || ''}`.trim(), 24),
+    description: cut(`${niceDate(o.date)} · owes ${money(o.balance)}`, 72),
+  }));
+  if (more) rows.push({ id: `owing:${offset + 9}`, title: 'More orders…', description: `${all.length - offset - 9} more still owing` });
+  const total = all.reduce((t, o) => t + o.balance, 0);
+  return send(to, {
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: cut(`${all.length} order${all.length > 1 ? 's' : ''} still owing, ${money(total)} in total.${offset ? ` (showing from #${offset + 1})` : ''}\nTap below, pick the order, then choose how they paid.`, 1024) },
+      action: { button: 'Choose order', sections: [{ title: 'Still owing', rows }] },
+    },
+  });
+}
+
+/** Taps on the list ("pay:1004", "owing:9") and on the payment buttons ("paid:1004:Cash"). */
+async function handleTap(from, who, tapId, msgId) {
+  const s = await store();
+  const data = await readAll(s);
+  if (data.payments.some((p) => p.source === msgId)) return;
+  const [what, id, method] = tapId.split(':');
+  if (what === 'owing') return sendOwingList(from, data, Number(id) || 0);
+  const o = data.orders.find((x) => x.id === id);
+  if (!o) return reply(from, `I can't find order #${id}.`);
+  const owing = Math.round((orderTotal(o) - paidFor(data, o.id)) * 100) / 100;
+  if (owing <= 0.005) return reply(from, `#${o.id} ${o.customer} is already fully paid.`);
+  if (what === 'pay') {
+    return send(from, {
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: `#${o.id} ${o.customer}\n${niceDate(o.date)} · owes ${money(owing)}\n\nHow did they pay the ${money(owing)}?\n(For a part payment, send e.g. *Paid $200 cash #${o.id}*)` },
+        action: { buttons: [
+          { type: 'reply', reply: { id: `paid:${o.id}:Cash`, title: 'Cash' } },
+          { type: 'reply', reply: { id: `paid:${o.id}:Card`, title: 'Card' } },
+          { type: 'reply', reply: { id: `paid:${o.id}:Bank transfer`, title: 'Bank transfer' } },
+        ] },
+      },
+    });
+  }
+  if (what === 'paid') {
+    const m = ['Cash', 'Card', 'Bank transfer'].includes(method) ? method : 'Other';
+    const rec = clean('payments', { orderId: o.id, amount: owing, method: m, date: todayBrisbane(), note: 'Paid in full · via WhatsApp' });
+    rec.id = 'p-' + msgId.slice(-10).replace(/[^A-Za-z0-9]/g, '');
+    rec.createdAt = new Date().toISOString();
+    rec.createdBy = `${who} (WhatsApp)`;
+    rec.source = msgId;
+    await upsert(s, 'payments', rec);
+    const left = owingOrders({ ...data, payments: [...data.payments, rec] });
+    return reply(from, `💰 ${money(owing)} ${m.toLowerCase()} recorded. #${o.id} ${o.customer} is fully paid.\n\n${left.length ? `${left.length} order${left.length > 1 ? 's' : ''} still owing. Send *owing* to see them.` : 'Nothing else is owing. 🎉'}`);
+  }
+}
 
 async function handleText(from, who, text, msgId) {
   const s = await store();
@@ -64,6 +135,7 @@ async function handleText(from, who, text, msgId) {
   if (data.orders.some((o) => o.source === msgId) || data.payments.some((p) => p.source === msgId)) return;
 
   if (/^\s*(help|hi|hello|hey|menu|\?)\s*$/i.test(text)) return reply(from, HELP);
+  if (/^\s*(owing|owe|owed|pending|unpaid|due|payments?|pay|balance|balances)\s*\??\s*$/i.test(text)) return sendOwingList(from, data);
 
   const paid = (id) => data.payments.filter((p) => p.orderId === id).reduce((t, p) => t + (Number(p.amount) || 0), 0);
   const openOrders = data.orders.filter((o) => o.status !== 'cancelled')
@@ -179,6 +251,11 @@ export default async function handler(req, res) {
     for (const m of (change.value && change.value.messages) || []) {
       const from = String(m.from || '').replace(/\D/g, '');
       if (!allowed[from]) { console.log('Ignored message from unlisted number'); continue; }
+      if (m.type === 'interactive') {
+        const tap = (m.interactive && (m.interactive.list_reply || m.interactive.button_reply)) || {};
+        if (tap.id) jobs.push(handleTap(from, allowed[from], tap.id, m.id).catch(async (e) => { console.error(e); await reply(from, 'Something went wrong. Please try again in a minute, or use the app.'); }));
+        continue;
+      }
       if (m.type !== 'text') { jobs.push(reply(from, 'For now I can only read text messages. Type the order out and send it again.')); continue; }
       jobs.push(handleText(from, allowed[from], m.text.body || '', m.id).catch(async (e) => {
         console.error(e);
