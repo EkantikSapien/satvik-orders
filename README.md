@@ -34,7 +34,8 @@ The order book for Satvik Catering: catering and farsan/sweet orders, a calendar
 | `GOOGLE_CLIENT_ID` | the OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | the OAuth client secret |
 | `OWNER_EMAIL` | the owner's Google email (whose Drive holds the data) |
-| `ALLOWED_EMAILS` | everyone else who should get in, separated by commas |
+| `ALLOWED_EMAILS` | (optional) other Google emails that may sign in with Google, separated by commas |
+| `APP_USERS` | (optional, Secret) username/password logins, e.g. `Mum:mango42, Dad:jalebi99` |
 | `SESSION_SECRET` | any long random text (the app shows you one to use if it's missing) |
 
 3. **Deployments → ⋯ → Redeploy** so the variables take effect.

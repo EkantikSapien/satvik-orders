@@ -234,7 +234,9 @@ body{margin:0;font-size:14px}
 img{max-width:100%}
 [hidden]{display:none!important}
 .signin{max-width:420px;margin:40px auto;text-align:center}
-.signin #gbtn{display:flex;justify-content:center;margin-top:18px;min-height:44px}
+.signin #gbtn{display:flex;justify-content:center;min-height:44px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:18px 0}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
 .who{display:flex;align-items:center;gap:4px}
 code{background:var(--sunk);padding:1px 5px;border-radius:5px;font-size:13px}
 a{color:var(--brand)}
@@ -374,7 +376,15 @@ function renderTabs(){
   $('#tabs').innerHTML = tabs.map(([k,l]) => `<button data-act="tab" data-id="${k}" ${S.tab===k?'aria-current="page"':''}>${ICONS[k]}${l}</button>`).join('');
 }
 function loadingOrBlocked(){
-  if (S.status === 'signin') return `<div class="signin"><h1 class="view">Satvik order book</h1><p class="sub">Sign in with the Google account your email was added with.</p><div id="gbtn"></div>${S.signinMsg ? `<div class="err" style="margin-top:14px">${esc(S.signinMsg)}</div>` : ''}</div>`;
+  if (S.status === 'signin') return `<div class="signin"><h1 class="view">Satvik order book</h1><p class="sub">Sign in to see and add orders.</p>
+    <form id="signin-form" novalidate style="text-align:left;margin-top:18px">
+      ${S.signinMsg ? `<div class="err">${esc(S.signinMsg)}</div>` : ''}
+      <div class="field"><label for="si-user">Username</label><input id="si-user" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></div>
+      <div class="field"><label for="si-pass">Password</label><input id="si-pass" name="password" type="password" autocomplete="current-password" required></div>
+      <button class="btn" type="submit" id="si-btn" style="width:100%">Sign in</button>
+    </form>
+    <div class="or"><span>or</span></div>
+    <div id="gbtn"></div></div>`;
   if (S.status === 'config') return `<div class="empty" style="margin-top:24px;text-align:left"><b>Almost set up</b>Add these environment variables in Vercel (Project → Settings → Environment Variables), then redeploy:<ul>${S.missing.map(m => `<li><code>${esc(m)}</code></li>`).join('')}</ul>${S.missing.includes('SESSION_SECRET') ? `<p>For <code>SESSION_SECRET</code> you can use this freshly made random value:</p><p><code style="user-select:all;word-break:break-all">${esc(randomSecret())}</code></p>` : ''}</div>`;
   if (S.status === 'setup') return S.isOwner
     ? `<div class="empty" style="margin-top:24px"><b>Connect your Google Drive</b>The app will create a “Satvik Orders” sheet and a “Satvik Receipts” folder in your Drive and keep everything there.<div style="margin-top:14px"><a class="btn" href="/api/setup/start" style="text-decoration:none;display:inline-block">Connect Google Drive</a></div></div>`
@@ -941,7 +951,9 @@ document.addEventListener('click', async ev => {
 });
 document.addEventListener('submit', ev => {
   ev.preventDefault();
-  const f = ev.target, btn = f.querySelector('#save-btn'); if (!btn || btn.disabled) return;
+  const f = ev.target;
+  if (f.id === 'signin-form'){ passwordSignin(f); return; }
+  const btn = f.querySelector('#save-btn'); if (!btn || btn.disabled) return;
   if (f.id === 'order-form') saveOrder(f, btn);
   else if (f.id === 'expense-form') saveExpense(f, btn);
   else if (f.id === 'payment-form') savePayment(f, btn);
@@ -998,6 +1010,20 @@ async function showSignin(){
     google.accounts.id.renderButton($('#gbtn'), { theme:'outline', size:'large', shape:'pill', text:'signin_with' });
     google.accounts.id.prompt();
   } catch(e){ S.signinMsg = 'Couldn’t load Google sign-in. Check your connection and reload.'; renderMain(); }
+}
+async function passwordSignin(f){
+  const btn = f.querySelector('#si-btn'); if (btn.disabled) return;
+  const username = f.querySelector('#si-user').value.trim(), password = f.querySelector('#si-pass').value;
+  if (!username || !password){ S.signinMsg = 'Enter your username and password.'; renderMain(); showSignin(); return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    await api('/api/auth/password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+    S.signinMsg = ''; S.status = 'loading'; renderMain(); refresh();
+  } catch(e){
+    S.signinMsg = e.status === 401 ? 'That username and password don’t match.' : errMsg(e);
+    renderMain(); showSignin();
+    const u = $('#si-user'); if (u && u.value !== undefined) u.value = username;
+  }
 }
 async function onCredential(resp){
   try {
