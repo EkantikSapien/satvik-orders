@@ -50,7 +50,12 @@ Done. Share the link with the team. To let family see the receipts folder or she
 
 ## WhatsApp order bot (optional)
 
-Free to run. Send *catering* or *farsan* to Satvik's WhatsApp number and it replies with a short form; fill it in and send it back, and the order is added to the sheet with a reply showing the order number and total. "Paid $500 cash #1004" records a payment. Only numbers in `WHATSAPP_ALLOWED_NUMBERS` are listened to.
+Free to run. Only numbers in `WHATSAPP_ALLOWED_NUMBERS` are listened to. Send *help* to the bot for the full list.
+
+- **Orders:** forward or paste the order as written (a confirmation message, or a note like "1kg sev khamni, Sunday, Kunalbhai"; one message can hold several farsan customers). *catering* / *farsan* still sends a form. Missing details: `#1023 name Kunalbhai`, `#1023 date 24/10`, `#1023 guests 50`.
+- **What's on:** `today`, `tomorrow`, `Sunday`, `24/10`: the orders and the kg of sev khamani / vatidar / nylon khaman to make.
+- **Equipment:** `equipment` lists what's out; `returned #1004` marks it back.
+- **Payments:** `owing` (tap-to-pick list), `Paid $500 cash #1004`, `paid in full before today`.
 
 1. *(Optional, paid)* To accept free-form messages instead of the form, add an Anthropic API key as `ANTHROPIC_API_KEY`. Without it the free form reader is used.
 2. **Meta WhatsApp Cloud API** at <https://developers.facebook.com/apps>: create an app (use case "Connect with customers through WhatsApp"), open **WhatsApp → API Setup**. Note the **Phone number ID**, add each team member's mobile under **To** and confirm the code WhatsApp sends them.

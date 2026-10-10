@@ -6,6 +6,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { store, readAll, upsert, nextOrderId, clean, orderTotal } from '../lib/store.js';
 import { extract } from '../lib/extract.js';
 import { parseMessage, TEMPLATES } from '../lib/parse.js';
+import { PREP, prepTotals } from '../lib/prep.js';
 
 const APP_URL = () => process.env.APP_URL || 'https://satvik-orders.vercel.app';
 const GRAPH = () => `https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION || 'v25.0'}`;
@@ -54,10 +55,12 @@ const todayBrisbane = () => new Date().toLocaleDateString('en-CA', { timeZone: '
 const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const validTime = (s) => /^\d{2}:\d{2}$/.test(String(s || ''));
 
-const HELP = 'Hi! To add an order, send *catering* or *farsan* and I\'ll send a form to copy, fill in and send back.\n\n'
-  + 'To record a payment, send e.g. *Paid $500 cash #1004*\n\n'
-  + 'To mark orders fully paid: *paid in full #1004 #1006* or *paid in full before today*\n\n'
-  + 'Send *owing* to pick from a list of orders still to be paid.';
+const HELP = '*Adding orders*\nForward or paste the order as you\'d write it, e.g. your confirmation message, or "1kg sev khamni, Sunday, Kunalbhai". You can also send *catering* or *farsan* for a form.\n'
+  + 'Fix a detail: *#1023 name Kunalbhai*, *#1023 date 24/10*, *#1023 guests 50*\n\n'
+  + '*What\'s on*\nSend *today*, *tomorrow*, *Sunday* or *24/10*\n\n'
+  + '*Equipment*\nSend *equipment* to see what\'s out, *returned #1004* when it\'s back\n\n'
+  + '*Payments*\n'
+  + '*owing* to pick from orders still to pay\n*Paid $500 cash #1004* for a part payment\n*paid in full before today* for many at once';
 
 const paidFor = (data, id) => data.payments.filter((p) => p.orderId === id).reduce((t, p) => t + (Number(p.amount) || 0), 0);
 const owingOrders = (data) => data.orders
@@ -65,6 +68,31 @@ const owingOrders = (data) => data.orders
   .map((o) => ({ ...o, balance: Math.round((orderTotal(o) - paidFor(data, o.id)) * 100) / 100 }))
   .filter((o) => o.balance > 0.005)
   .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+
+const equipmentOut = (data) => data.orders
+  .filter((o) => o.equipment && String(o.equipment).trim() && !o.returnedAt && o.status !== 'cancelled' && o.date)
+  .sort((a, b) => a.date.localeCompare(b.date));
+
+/** "tomorrow" -> the day's orders, in time order, with the kg of each farsan to make. */
+function dayReport(data, date, today) {
+  const orders = data.orders.filter((o) => o.date === date && o.status !== 'cancelled')
+    .sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+  const label = date === today ? 'Today' : niceDate(date);
+  if (!orders.length) return `📅 ${label}${date === today ? ' (' + niceDate(date) + ')' : ''}: no orders.`;
+  const tot = prepTotals(orders);
+  const lines = [`📅 *${label}${date === today ? ' · ' + niceDate(date) : ''}* · ${orders.length} order${orders.length > 1 ? 's' : ''}`];
+  const make = PREP.filter((p) => tot[p.key].kg > 0).map((p) => `• ${p.label}: *${Math.round(tot[p.key].kg * 100) / 100} kg*`);
+  if (make.length) lines.push('', 'To make:', ...make);
+  const noQty = PREP.flatMap((p) => tot[p.key].noQty.map((o) => `#${o.id} ${o.customer} (${p.label.toLowerCase()})`));
+  if (noQty.length) lines.push(`Not counted, no kg given: ${[...new Set(noQty)].join(', ')}`);
+  lines.push('');
+  for (const o of orders) {
+    const owe = Math.round((orderTotal(o) - paidFor(data, o.id)) * 100) / 100;
+    const what = o.type === 'farsan' ? (o.items || []).map((i) => `${i.qty}${i.unit} ${i.name}`).join(', ') : `${o.guests || '?'} guests`;
+    lines.push(`*${o.time ? niceTime(o.time) : 'No time'}* #${o.id} ${o.customer || '(no name)'} · ${o.fulfilment === 'delivery' ? 'Delivery' : 'Pickup'}\n${what}${owe > 0.005 ? ` · owes ${money(owe)}` : ' · paid'}`);
+  }
+  return lines.join('\n');
+}
 
 /** WhatsApp list message (max 10 rows): the orders still owing, oldest first, with a "More" row to page on. */
 async function sendOwingList(to, data, offset = 0) {
@@ -144,7 +172,7 @@ async function handleText(from, who, text, msgId) {
 
   const today = todayBrisbane();
   // Free rule-based reader by default; uses Claude only if an API key has been added.
-  const res = process.env.ANTHROPIC_API_KEY ? await extract(text, { today, openOrders }) : parseMessage(text, { today });
+  const res = process.env.ANTHROPIC_API_KEY ? await extract(text, { today, openOrders }) : parseMessage(text, { today, team: Object.values(senders()) });
 
   if (res.kind === 'template') {
     if (res.which === 'both') { await reply(from, 'Copy the form you need, fill it in and send it back:'); await reply(from, TEMPLATES.catering); return reply(from, TEMPLATES.farsan); }
@@ -152,35 +180,79 @@ async function handleText(from, who, text, msgId) {
     return reply(from, TEMPLATES[res.which]);
   }
 
-  if (res.kind === 'order' && res.order) {
-    const o = clean('orders', {
-      ...res.order,
-      status: res.order.status === 'enquiry' ? 'enquiry' : 'confirmed',
-      fulfilment: res.order.fulfilment === 'delivery' ? 'delivery' : 'pickup',
-      date: validDate(res.order.date) ? res.order.date : '',
-      time: validTime(res.order.time) ? res.order.time : '',
-      notes: [res.order.notes, `Added from WhatsApp by ${who}`].filter(Boolean).join('\n'),
-    });
-    if (!o.customer || !o.date) return reply(from, `I couldn't add that yet. ${res.missing || 'Please include the customer name and the date.'} Edit your message and send the whole order again.`);
-    o.id = await nextOrderId(s);
-    o.createdAt = new Date().toISOString();
-    o.createdBy = `${who} (WhatsApp)`;
-    o.source = msgId;
-    await upsert(s, 'orders', o);
-    const what = o.type === 'farsan'
-      ? (o.items || []).map((i) => `${i.qty}${i.unit} ${i.name}`).join(', ') || 'no items'
-      : `${o.guests || '?'} guests × ${money(o.perGuest)}`;
-    const lines = [
-      `✅ Order #${o.id} added`,
-      `${o.customer} · ${o.type === 'farsan' ? 'Farsan/Sweet' : 'Catering'}`,
-      `${niceDate(o.date)}${o.time ? ' ' + niceTime(o.time) : ''} · ${o.fulfilment === 'delivery' ? 'Delivery' + (o.address ? ' to ' + o.address : '') : 'Pickup'}`,
-      what,
-      `Total ${money(o.total)}`,
-    ];
-    if (res.missing) lines.push('', `Check: ${res.missing}`);
-    lines.push('', `Fix anything in the app: ${APP_URL()}`);
-    return reply(from, lines.join('\n'));
+  if (res.kind === 'order' && (res.orders || res.order)) {
+    const out = [];
+    let n = 0;
+    for (const src of res.orders || [res.order]) {
+      const o = clean('orders', {
+        ...src,
+        status: src.status === 'enquiry' ? 'enquiry' : 'confirmed',
+        fulfilment: src.fulfilment === 'delivery' ? 'delivery' : 'pickup',
+        date: validDate(src.date) ? src.date : '',
+        time: validTime(src.time) ? src.time : '',
+        notes: [src.notes, `Added from WhatsApp by ${who}`].filter(Boolean).join('\n'),
+      });
+      // the same message forwarded twice (or by two people) shouldn't make two orders
+      const dup = o.customer && data.orders.find((x) => x.status !== 'cancelled' && x.type === o.type && x.date === o.date
+        && x.customer.trim().toLowerCase() === o.customer.trim().toLowerCase() && Math.abs(orderTotal(x) - o.total) < 0.01);
+      if (dup) { out.push(`⚠️ ${o.customer} on ${niceDate(o.date)} is already in as #${dup.id}, so I didn't add it again.`); continue; }
+      o.id = await nextOrderId(s);
+      o.createdAt = new Date().toISOString();
+      o.createdBy = `${who} (WhatsApp)`;
+      o.source = n++ ? `${msgId}#${n}` : msgId;
+      await upsert(s, 'orders', o);
+      data.orders.push(o);
+      const what = o.type === 'farsan'
+        ? (o.items || []).map((i) => `${i.qty}${i.unit} ${i.name}`).join(', ') || 'no items'
+        : `${o.guests || '?'} guests × ${money(o.perGuest)}${o.deliveryFee ? ` + ${money(o.deliveryFee)} delivery` : ''}${o.otherAmount ? ` + ${money(o.otherAmount)} other` : ''}`;
+      const lines = [
+        `✅ #${o.id} ${o.customer || '(no name yet)'} · ${o.type === 'farsan' ? 'Farsan/Sweet' : 'Catering'}`,
+        `${o.date ? niceDate(o.date) : '(no date yet)'}${o.time ? ' ' + niceTime(o.time) : ''} · ${o.fulfilment === 'delivery' ? 'Delivery' + (o.address ? ' to ' + o.address : '') : 'Pickup'}`,
+        what,
+        `Total ${money(o.total)}`,
+      ];
+      if (o.equipment) lines.push(`Equipment: ${o.equipment.split('\n').join(', ')}`);
+      const fix = [];
+      if (!o.customer) fix.push(`*#${o.id} name Kunalbhai*`);
+      if (!o.date) fix.push(`*#${o.id} date 24/10*`);
+      if (o.type === 'catering' && !o.guests) fix.push(`*#${o.id} guests 50*`);
+      if (fix.length) lines.push(`Missing ${fix.length > 1 ? 'some details' : 'a detail'}. Reply e.g. ${fix.join(' or ')}`);
+      out.push(lines.join('\n'));
+    }
+    if (out.length > 1) out.unshift(`Added ${n} order${n === 1 ? '' : 's'} from that message:`);
+    out.push(`Check or change anything in the app: ${APP_URL()}`);
+    return reply(from, out.join('\n\n'));
   }
+
+  if (res.kind === 'set') {
+    if (res.missing) return reply(from, res.missing);
+    const o = data.orders.find((x) => x.id === res.id);
+    if (!o) return reply(from, `I can't find order #${res.id}.`);
+    const upd = clean('orders', { ...o, ...res.changes, updatedAt: new Date().toISOString(), updatedBy: `${who} (WhatsApp)` });
+    await upsert(s, 'orders', upd);
+    const what = Object.entries(res.changes).filter(([k]) => k !== 'fulfilment').map(([k, v]) =>
+      k === 'date' ? `date ${niceDate(v)}` : k === 'time' ? `time ${niceTime(v)}` : k === 'customer' ? `name ${v}` : k === 'perGuest' ? `price ${money(v)} per guest` : `${k} ${v}`).join(', ');
+    return reply(from, `✏️ #${o.id} updated: ${what}.${['guests', 'perGuest'].some((k) => k in res.changes) ? `\nTotal now ${money(upd.total)}.` : ''}`);
+  }
+
+  if (res.kind === 'returned') {
+    const o = data.orders.find((x) => x.id === res.id);
+    if (!o) return reply(from, `I can't find order #${res.id}.`);
+    await upsert(s, 'orders', clean('orders', { ...o, returnedAt: today, updatedAt: new Date().toISOString(), updatedBy: `${who} (WhatsApp)` }));
+    const left = equipmentOut(data).filter((x) => x.id !== o.id);
+    return reply(from, `📦 Equipment back from #${o.id} ${o.customer}.${left.length ? `\n${left.length} order${left.length > 1 ? 's' : ''} still have equipment out. Send *equipment* to see.` : '\nNothing else is out.'}`);
+  }
+
+  if (res.kind === 'equipment') {
+    const out = equipmentOut(data);
+    if (!out.length) return reply(from, '📦 All equipment is back.');
+    return reply(from, ['📦 Equipment still out:', ...out.map((o) => {
+      const days = Math.round((new Date(today + 'T00:00') - new Date(o.date + 'T00:00')) / 86400000);
+      return `\n#${o.id} ${o.customer} · ${niceDate(o.date)}${days > 3 ? ` · ⚠️ ${days} days` : days >= 0 ? ` · ${days} day${days === 1 ? '' : 's'}` : ' · not yet'}\n${o.equipment.split('\n').join(', ')}`;
+    }), '\nWhen it comes back, send e.g. *returned #' + out[0].id + '*'].join('\n'));
+  }
+
+  if (res.kind === 'day') return reply(from, dayReport(data, res.date, today));
 
   if (res.kind === 'payfull') {
     if (res.missing) return reply(from, res.missing);

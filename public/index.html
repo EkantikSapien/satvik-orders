@@ -178,6 +178,7 @@ table.it td.n,table.it th.n{text-align:right}
 .ac-list .btn{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px}
 .ac-list .btn small{font-weight:500;opacity:.8}
 
+.equip-state{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
 /* production totals (Orders tab) */
 .prep{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
 .prep-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -370,6 +371,17 @@ function orderSummary(o){
   if (o.type === 'farsan'){ const it = (o.items||[]).filter(i=>i.name); return it.length ? it.map(i=>`${i.name}${i.qty?` ${i.qty}${i.unit||''}`:''}`).join(', ') : 'No items yet'; }
   return [o.guests ? `${o.guests} guests` : null, o.perGuest ? `${money(o.perGuest)}/head` : null, o.occasion||null].filter(Boolean).join(' · ') || 'Catering';
 }
+const equipOut = () => S.orders.filter(o => String(o.equipment||'').trim() && !o.returnedAt && o.status !== 'cancelled' && o.date && o.date <= todayISO()).sort((a,b)=> a.date.localeCompare(b.date));
+const daysSince = iso => Math.round((toD(todayISO()) - toD(iso)) / 86400000);
+function equipRow(o){
+  const d = daysSince(o.date), late = d > 3;
+  return `<button class="row" data-act="open-order" data-id="${esc(o.id)}">
+    ${dateBox(o.date)}
+    <div class="main"><div class="t">${esc(o.customer||'No name')}</div>
+      <div class="m">#${esc(o.id)} · ${esc(String(o.equipment).split('\n').map(x=>x.trim()).filter(Boolean).join(', '))}</div></div>
+    <div class="r"><span class="pill ${late ? 'p-unpaid' : 'p-part'}">${d === 0 ? 'Today' : d + (d === 1 ? ' day' : ' days')}</span></div>
+  </button>`;
+}
 function orderRow(o){
   const ps = payState(o);
   return `<button class="row" data-act="open-order" data-id="${esc(o.id)}">
@@ -506,6 +518,8 @@ function viewDashboard(){
       <div class="kpi"><small>Collected</small><strong class="num">${sales > 0 ? Math.min(100, Math.round(sum(ords, o => Math.min(orderTotal(o), paidFor(o.id))) / sales * 100)) + '%' : '–'}</strong><em>of this period’s orders paid</em></div>
     </div>`;
   h += `<h2 class="sec">Next 7 days</h2>` + (soon.length ? `<div class="list">${soon.map(orderRow).join('')}</div>` : `<div class="empty"><b>Nothing booked for the next 7 days</b>See the Calendar for later dates.</div>`);
+  const eq = equipOut();
+  if (eq.length) h += `<h2 class="sec">Equipment still out · ${eq.length}</h2><div class="list">${eq.map(equipRow).join('')}</div><p class="hint">Red means more than 3 days since the event. Open the order and tap <b>Mark returned</b> when it’s back.</p>`;
   if (owing.length) h += `<h2 class="sec">Past orders still owing</h2><div class="list">${owing.map(orderRow).join('')}</div>`;
   h += `<h2 class="sec">Trends</h2>${monthsChart()}`;
   h += `<h2 class="sec">Breakdown · ${esc(R[2])}</h2><div class="panels">
@@ -561,9 +575,9 @@ function viewCalendar(){
 
 /* ---------- how much to make (Orders tab) ---------- */
 const PREP = [
-  { key:'sev', label:'Sev khamani', match:/\bsev\s*kham/i },
-  { key:'vatidar', label:'Vatidar khaman', match:/\bvati\w*\s*(na\s*)?kham/i },
-  { key:'nylon', label:'Nylon khaman', match:/\bnylon\s*kham/i },
+  { key:'sev', label:'Sev khamani', match:/\bsev\s*kham|\bkhama?ni\b/i },
+  { key:'vatidar', label:'Vatidar khaman', match:/\bvati\s*\w*\s*(na\s*)?kh?aman/i },
+  { key:'nylon', label:'Nylon khaman', match:/\bnylon\s*kh?aman/i },
 ];
 const addDays = (iso, n) => { const d = toD(iso); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); };
 /** Kilos of each farsan to make across the given orders: farsan items in kg, plus "2kg" / "(14.5 kg)" written in a catering menu. */
@@ -728,6 +742,7 @@ function sheetOrderForm(t){
       <button type="button" class="btn ghost" data-act="add-item" style="margin-bottom:16px">+ Add item</button>`}
     <div class="grid2"><div class="field"><label for="f-deliveryFee">Delivery fee ($)</label><input id="f-deliveryFee" name="deliveryFee" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(o.deliveryFee)}"></div>
       <div class="field"><label for="f-otherAmount">Other charges ($)</label><input id="f-otherAmount" name="otherAmount" type="number" inputmode="decimal" step="any" value="${esc(o.otherAmount)}"></div></div>
+    <div class="field"><label for="f-equipment">Equipment lent</label><textarea id="f-equipment" name="equipment" rows="2" placeholder="One per line, e.g. 4 x 10kg buckets, steel tray">${esc(o.equipment)}</textarea></div>
     <div class="field"><label for="f-notes">Other details</label><textarea id="f-notes" name="notes" placeholder="Dietary needs (Jain, no onion-garlic), serving staff, what the other charges are for…">${esc(o.notes)}</textarea></div>
     <div class="totalbar"><span>Order total</span><b class="num" id="f-total">${money(orderTotal(o))}</b></div>
     <div class="btns"><button class="btn" type="submit" id="save-btn">${t.id ? 'Save changes' : 'Save order'}</button></div>
@@ -751,15 +766,15 @@ function lastPrice(name, unit){
 }
 // Standard farsan prices (AUD per kg). Keep in step with lib/parse.js.
 const STANDARD_PRICES = [
-  { match: /\bsev\s*kham/i, perKg: 30 },
-  { match: /\bvati\w*\s*(na\s*)?kham/i, perKg: 30 },
-  { match: /\bnylon\s*kham/i, perKg: 30 },
+  { match: /\bsev\s*kham|\bkhama?ni\b/i, perKg: 30 },
+  { match: /\bvati\s*\w*\s*(na\s*)?kh?aman/i, perKg: 30 },
+  { match: /\bnylon\s*kh?aman/i, perKg: 30 },
 ];
 function readOrderForm(f){
   const fd = new FormData(f);
   const g = k => (fd.get(k) || '').toString().trim();
   const o = { type:g('type'), customer:g('customer'), phone:g('phone'), status:g('status')||'confirmed', date:g('date'), time:g('time'),
-    fulfilment:g('fulfilment')||'pickup', address:g('address'), deliveryFee:num(g('deliveryFee')), otherAmount:num(g('otherAmount')), notes:g('notes') };
+    fulfilment:g('fulfilment')||'pickup', address:g('address'), deliveryFee:num(g('deliveryFee')), otherAmount:num(g('otherAmount')), notes:g('notes'), equipment:g('equipment') };
   if (o.type === 'catering'){ o.occasion = g('occasion'); o.guests = num(g('guests')); o.perGuest = num(g('perGuest')); o.menu = g('menu'); }
   else o.items = [...f.querySelectorAll('.item-row')].map(r => ({ name:r.querySelector('.i-name').value.trim(), qty:num(r.querySelector('.i-qty').value), unit:r.querySelector('.i-unit').value, price:num(r.querySelector('.i-price').value) })).filter(i => i.name);
   return o;
@@ -821,6 +836,10 @@ function sheetOrder(t){
     ${w ? `<div class="btns"><button class="btn" data-act="new-payment" data-id="${esc(o.id)}">Record payment</button><button class="btn warn" data-act="new-expense" data-id="${esc(o.id)}">Add receipt</button></div>` : ''}
     <h2 class="sec">Status</h2><div class="chips" style="margin:0">${statusChips}</div>
     <h2 class="sec">${o.type === 'farsan' ? 'Items' : 'Menu'}</h2>${items}
+    ${String(o.equipment||'').trim() ? `<h2 class="sec">Equipment lent</h2><div class="prewrap">${esc(o.equipment)}</div>
+      <div class="equip-state">${o.returnedAt
+        ? `<span class="pill p-paid">Returned ${esc(fmtDate(o.returnedAt,{day:'numeric',month:'short'}))}</span>${w ? ` <button class="btn link" data-act="equip-undo">Undo</button>` : ''}`
+        : `<span class="pill ${o.date && daysSince(o.date) > 3 ? 'p-unpaid' : 'p-part'}">Not back yet${o.date && daysSince(o.date) > 0 ? ' · ' + daysSince(o.date) + (daysSince(o.date) === 1 ? ' day' : ' days') : ''}</span>${w ? ` <button class="btn ghost" data-act="equip-returned" style="margin-left:8px">Mark returned</button>` : ''}`}</div>` : ''}
     ${o.notes ? `<h2 class="sec">Other details</h2><div class="prewrap">${esc(o.notes)}</div>` : ''}
     <h2 class="sec">Payments received</h2>
     ${pays.length ? `<div class="list">${pays.map(paymentRow).join('')}</div>` : `<div class="empty">No payments yet</div>`}
@@ -1015,6 +1034,8 @@ document.addEventListener('click', async ev => {
     case 'cancel-confirm': S.confirm = null; renderSheet(); break;
     case 'set-status': { const o = orderById(top().id); if (!o || o.status === id) break;
       try { await db.save('orders', o.id, { ...strip(o), status:id }); toast(`Marked ${STATUSES.find(s=>s[0]===id)[1].toLowerCase()}`); } catch(e){ toast(errMsg(e)); } break; }
+    case 'equip-returned': case 'equip-undo': { const o = orderById(top().id); if (!o) break;
+      try { await db.save('orders', o.id, { ...strip(o), returnedAt: act === 'equip-returned' ? todayISO() : '' }); toast(act === 'equip-returned' ? 'Equipment marked returned' : 'Marked not returned'); } catch(e){ toast(errMsg(e)); } break; }
     case 'del-order': { const oid = top().id; try { await db.remove('orders', oid); toast(`Order #${oid} deleted`); closeSheet(); } catch(e){ toast(errMsg(e)); } break; }
     case 'del-expense': { const eid = top().id; const e = S.expenses.find(x => x.id === eid);
       try { await db.remove('expenses', eid); if (e && e.receiptId) trashReceipt(e.receiptId); toast('Expense deleted'); closeSheet(); } catch(x){ toast(errMsg(x)); } break; }
