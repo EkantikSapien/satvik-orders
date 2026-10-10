@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EFE4D0">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Satvik Orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Poppins:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first app shell; sticky header, 5-tab bar, slide-up sheets. Colours and type taken from satvikcatering.com.au */
+:root{
+  --bg:#EFE4D0; --surface:#FFFAF1; --sunk:#E6D8BF; --ink:#3D2117; --muted:#664535; --line:#DAC6A5;
+  --leaf:#762B16; --on-leaf:#FBF3E6; --brand:#762B16;
+  --turmeric:#EF8422; --turmeric-soft:#F8DDB2; --on-turmeric:#3D2117;
+  --good:#2F6B3F; --good-soft:#DDE9CF; --warn:#8A4B0B; --warn-soft:#F8DDB2; --bad:#B3261E; --bad-soft:#F5D6CD;
+  --c1:#D9711A; --c2:#953B1F;
+  --ev-cat:#762B16; --on-ev-cat:#FBF3E6; --ev-far:#EF8422; --on-ev-far:#3D2117;
+  --shadow:0 10px 30px rgba(61,33,23,.18);
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme:light;
+}
+/* Always beige: one light theme on purpose, so it reads the same on every phone */
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header.top .in{max-width:760px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-family:var(--display);font-weight:650;font-size:25px;line-height:1;color:var(--brand)}
+.brand span{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who{font-size:13px;color:var(--muted)}
+
+h2.sec{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:26px 0 10px}
+h1.view{font-family:var(--display);font-weight:650;font-size:30px;line-height:1.1;margin:22px 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 6px}
+
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0;text-align:left;cursor:pointer}
+.tile.owe{background:var(--turmeric-soft);border-color:transparent}
+.tile small{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.tile strong{display:block;font-size:20px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:460px){.tiles{grid-template-columns:1fr 1fr}.tile.owe{grid-column:1/-1}}
+
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:flex;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:var(--sunk)}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .m{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.row .amt{font-weight:700}
+.datebox{flex:none;width:46px;text-align:center;border-radius:10px;background:var(--sunk);padding:5px 0}
+.datebox b{display:block;font-size:19px;line-height:1.1}
+.datebox i{display:block;font-style:normal;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.datebox.today{background:var(--turmeric);color:var(--on-turmeric)}
+.datebox.today i{color:var(--on-turmeric)}
+.thumb{flex:none;width:46px;height:46px;border-radius:10px;background:var(--sunk);object-fit:cover;display:grid;place-items:center;font-size:11px;color:var(--muted);font-weight:700}
+
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;letter-spacing:.02em}
+.p-paid{background:var(--good-soft);color:var(--good)}
+.p-part{background:var(--warn-soft);color:var(--warn)}
+.p-unpaid{background:var(--bad-soft);color:var(--bad)}
+.p-none,.p-cancelled{background:var(--sunk);color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.tag.farsan{color:var(--warn)}
+.tag.catering{color:var(--brand)}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13.5px;font-weight:600;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:16px}
+
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:22px 18px;color:var(--muted);text-align:center}
+.empty b{color:var(--ink);display:block;margin-bottom:4px}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs button{background:none;border:0;padding:10px 2px 12px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button[aria-current="page"]{color:var(--brand)}
+.fab{position:fixed;z-index:7;right:max(16px,calc(50% - 364px));bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--turmeric);color:var(--on-turmeric);border:0;border-radius:99px;padding:14px 20px;font-weight:700;font-size:15px;box-shadow:var(--shadow);cursor:pointer;display:flex;gap:6px;align-items:center}
+
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--leaf);color:var(--on-leaf);font-size:15px}
+.btn.ghost{background:var(--sunk);color:var(--ink)}
+.btn.warn{background:var(--turmeric);color:var(--on-turmeric)}
+.btn.danger{background:var(--bad-soft);color:var(--bad)}
+.btn.link{background:none;color:var(--muted);padding:8px 4px;font-weight:600}
+.btn:disabled{opacity:.55;cursor:default}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns .btn{flex:1 1 auto}
+:focus-visible{outline:2px solid var(--turmeric);outline-offset:2px}
+
+/* sheets */
+.scrim{position:fixed;inset:0;z-index:20;background:rgba(10,18,12,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:600px;max-height:94%;border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:var(--shadow);animation:up .22s ease-out}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:20px;max-height:90%}}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.sheet-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px 18px;border-bottom:1px solid var(--line)}
+.sheet-head h3{flex:1;margin:0;font-size:17px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{border:0;background:var(--sunk);width:36px;height:36px;border-radius:99px;font-size:20px;line-height:1;cursor:pointer;flex:none}
+.sheet-body{overflow-y:auto;padding:16px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;min-width:0}
+.field label,.lbl{font-size:13px;font-weight:700;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:16px;min-width:0}
+.field textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media (max-width:420px){.grid3{grid-template-columns:1fr 1fr}}
+.seg{display:flex;background:var(--sunk);border-radius:12px;padding:3px;gap:3px;flex-wrap:wrap}
+.seg label{flex:1;min-width:max-content}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:9px 10px;border-radius:9px;font-weight:600;font-size:14px;cursor:pointer}
+.seg input:checked+span{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg input:focus-visible+span{outline:2px solid var(--turmeric)}
+
+.items{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.item-row{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.1fr) 36px;gap:6px;align-items:center}
+.item-row input,.item-row select{width:100%;padding:10px 8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:16px;min-width:0}
+@media (max-width:460px){.item-row{grid-template-columns:1fr 1fr 1fr 36px;padding-bottom:8px;border-bottom:1px solid var(--line)}.item-row .i-name{grid-column:1/4}.item-row .icon-btn{grid-column:4;grid-row:1}.item-row .i-qty{grid-row:2;grid-column:1}.item-row .i-unit{grid-row:2;grid-column:2}.item-row .i-price{grid-row:2;grid-column:3/5}}
+.totalbar{display:flex;justify-content:space-between;align-items:baseline;background:var(--turmeric-soft);border-radius:12px;padding:12px 14px;margin:6px 0 16px}
+.totalbar b{font-size:22px}
+.hint{font-size:12.5px;color:var(--muted)}
+.err{background:var(--bad-soft);color:var(--bad);padding:10px 12px;border-radius:10px;font-weight:600;margin-bottom:12px}
+
+.photo-drop{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
+.photo-drop img{width:72px;height:72px;object-fit:cover;border-radius:10px;flex:none;background:var(--sunk)}
+.photo-drop .ph{width:72px;height:72px;border-radius:10px;flex:none;background:var(--sunk);display:grid;place-items:center;color:var(--muted)}
+.photo-drop .ph svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.6}
+.filebtn{position:relative;overflow:hidden;display:inline-block}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.picker{max-height:250px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.picker label{display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.picker label:first-child{border-top:0}
+.picker input{width:20px;height:20px;accent-color:var(--brand);flex:none}
+.picker .pm{color:var(--muted);font-size:12.5px}
+
+/* order detail */
+.d-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.d-name{font-family:var(--display);font-weight:650;font-size:28px;line-height:1.1;margin:4px 0 6px;text-wrap:balance}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0 4px;font-size:14.5px}
+.facts dt{color:var(--muted);font-weight:600}
+.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.money{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-radius:14px;overflow:hidden;margin:16px 0}
+.money div{background:var(--surface);padding:10px 12px;min-width:0}
+.money small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.money b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.money .hl{background:var(--turmeric-soft)}
+.prewrap{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;overflow-wrap:anywhere}
+table.it{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:14px}
+table.it td,table.it th{padding:9px 10px;border-top:1px solid var(--line);text-align:left}
+table.it th{font-size:12px;color:var(--muted);border-top:0}
+table.it td.n,table.it th.n{text-align:right}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--bad-soft);color:var(--bad);border-radius:12px;padding:10px 12px;font-weight:600}
+.receipt-full{width:100%;border-radius:12px;background:var(--sunk);display:block;margin-bottom:14px}
+.linkchip{display:inline-block;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:4px 10px;font-size:13px;font-weight:600;margin:0 6px 6px 0;cursor:pointer}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-weight:600;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.notice{background:var(--turmeric-soft);border-radius:12px;padding:12px 14px;margin-top:14px;font-size:14px}
+.ac-list{display:flex;flex-direction:column;gap:8px}
+.ac-list .btn{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px}
+.ac-list .btn small{font-weight:500;opacity:.8}
+
+/* calendar */
+.cal-nav{display:flex;align-items:center;gap:8px;margin:20px 0 12px}
+.cal-nav h1{flex:1;margin:0;font-family:var(--display);font-weight:650;font-size:26px;line-height:1.1}
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cal-dow,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-dow div{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
+.cal-day{min-height:92px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:none;padding:5px 4px;text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0}
+.cal-day:nth-child(7n){border-right:0}
+.cal-day.out{background:var(--sunk);opacity:.55}
+.cal-day.has{background:color-mix(in srgb, var(--turmeric-soft) 45%, var(--surface))}
+.cal-day[aria-pressed="true"]{outline:2px solid var(--turmeric);outline-offset:-2px}
+.cal-day .dn{font-size:13px;font-weight:600;width:24px;height:24px;display:grid;place-items:center;border-radius:99px}
+.cal-day.today .dn{background:var(--brand);color:var(--bg)}
+.ev{display:block;font-size:11px;line-height:1.25;font-weight:600;padding:2px 5px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ev.catering{background:var(--ev-cat);color:var(--on-ev-cat)}
+.ev.farsan{background:var(--ev-far);color:var(--on-ev-far)}
+.ev.cancelled{background:var(--sunk);color:var(--muted);text-decoration:line-through}
+.ev-more{font-size:11px;color:var(--muted);font-weight:600;padding-left:3px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:10px 2px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.day-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media (max-width:520px){.cal-day{min-height:68px;padding:4px 2px}.ev .tm{display:none}.ev{font-size:10px;padding:1px 3px}.cal-dow div{letter-spacing:0;padding:6px 0}}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:6px}
+@media (max-width:620px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.kpi.hero{background:var(--brand);color:var(--bg);border-color:transparent}
+.kpi.hero small,.kpi.hero em{color:inherit;opacity:.85}
+.kpi small{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.kpi strong{display:block;font-size:21px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi em{display:block;font-style:normal;font-size:12px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:620px){.panels{grid-template-columns:1fr}}
+.panel h3{margin:0 0 10px;font-size:14px;font-weight:600}
+.chart-wrap{position:relative;overflow-x:auto}
+.chart-wrap svg{display:block;width:100%;height:auto;min-width:420px}
+.chart-wrap svg text{fill:var(--muted);font-family:var(--body);font-size:11px}
+.chart-wrap .grid line{stroke:var(--line);stroke-width:1}
+.bar-c1{fill:var(--c1)} .bar-c2{fill:var(--c2)}
+.hitcol{fill:transparent;cursor:default}
+.hitcol:hover{fill:var(--sunk);opacity:.6}
+.ctip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;padding:7px 10px;border-radius:8px;white-space:nowrap;box-shadow:var(--shadow);z-index:2}
+.ctip b{display:block;margin-bottom:2px}
+.hbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;margin-bottom:9px;font-size:13.5px}
+.hbar .track{grid-column:1/-1;height:8px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.hbar .fill{height:100%;background:var(--c1);border-radius:99px}
+.hbar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank{width:100%;border-collapse:collapse;font-size:13.5px}
+.rank td{padding:6px 0;border-top:1px solid var(--line)}
+.rank tr:first-child td{border-top:0}
+.rank td.n{text-align:right;white-space:nowrap;padding-left:10px}
+.split{display:flex;height:12px;border-radius:99px;overflow:hidden;gap:2px;margin:6px 0 10px;background:var(--surface)}
+.split div{height:100%}
+
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:14px}
+img{max-width:100%}
+[hidden]{display:none!important}
+.signin{max-width:420px;margin:40px auto;text-align:center}
+.signin #gbtn{display:flex;justify-content:center;margin-top:18px;min-height:44px}
+.who{display:flex;align-items:center;gap:4px}
+code{background:var(--sunk);padding:1px 5px;border-radius:5px;font-size:13px}
+a{color:var(--brand)}
+</style>
+
+</head>
+<body>
+<header class="top"><div class="in">
+  <div class="brand"><b>Satvik</b><span id="today-lbl">Orders &amp; accounts</span></div>
+  <div class="who" id="who"></div>
+</div></header>
+
+<main class="wrap" id="main"></main>
+
+<button class="fab" data-act="new-menu" id="fab" aria-label="Add something new">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New
+</button>
+
+<nav class="tabs" aria-label="Sections"><div class="in" id="tabs"></div></nav>
+<div id="sheet-host" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<datalist id="farsan-list"></datalist>
+
+<script>
+(() => {
+const CATS = ['Groceries','Vegetables','Dairy','Spices & dry goods','Packaging','Gas & fuel','Staff','Hire & equipment','Other'];
+const METHODS = ['Cash','Card','Bank transfer','Other'];
+const UNITS = ['kg','pcs','box','tray','plate'];
+const FARSAN = ['Sev khamani','Khaman dhokla','Khandvi','Patra','Besan laddu','Motichoor laddu','Mohanthal','Chakri','Mathiya','Fafda','Jalebi','Thepla','Samosa','Kachori','Handvo','Gathiya','Chevdo','Kaju katli','Gulab jamun','Shrikhand','Basundi','Barfi','Peda','Rasmalai','Ghughra','Penda'];
+const STATUSES = [['enquiry','Enquiry'],['confirmed','Confirmed'],['done','Done'],['cancelled','Cancelled']];
+
+const S = { orders:[], expenses:[], payments:[], loaded:{orders:false,expenses:false,payments:false},
+  tab:'dash', stack:[], cal:{y:new Date().getFullYear(), m:new Date().getMonth(), sel:null}, dperiod:'month', ofilter:'upcoming', otype:'all', q:'', confirm:null, names:{}, me:null,
+  canWrite:true, assets:true, upload:null, status:'loading', links:{}, clientId:null, missing:[] };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => (v === '' || v == null || isNaN(Number(v))) ? 0 : Number(v);
+const AUD = new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'});
+const money = n => AUD.format(Math.round((n||0)*100)/100);
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const toD = iso => new Date(iso + 'T00:00');
+const fmtDate = (iso, opts) => iso ? toD(iso).toLocaleDateString('en-AU', opts || {weekday:'short',day:'numeric',month:'short'}) : 'No date';
+const fmtTime = t => { if(!t) return ''; const [h,m] = t.split(':').map(Number); const d = new Date(2000,0,1,h,m); return d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}).replace(' ','').toLowerCase(); };
+const dayDiff = iso => Math.round((toD(iso) - toD(todayISO())) / 864e5);
+const monthKey = iso => (iso||'').slice(0,7);
+const top = () => S.stack[S.stack.length-1];
+
+/* ---------- money maths ---------- */
+function orderTotal(o){
+  const extra = num(o.deliveryFee) + num(o.otherAmount);
+  if (o.type === 'farsan') return (o.items||[]).reduce((s,i)=> s + num(i.qty)*num(i.price), 0) + extra;
+  return num(o.guests)*num(o.perGuest) + extra;
+}
+const paymentsFor = id => S.payments.filter(p => p.orderId === id).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+const paidFor = id => paymentsFor(id).reduce((s,p)=> s + num(p.amount), 0);
+const expensesFor = id => S.expenses.filter(e => (e.orderIds||[]).includes(id))
+  .map(e => ({...e, share: num(e.amount) / Math.max(1,(e.orderIds||[]).length)}));
+function payState(o){
+  if (o.status === 'cancelled') return {k:'cancelled', t:'Cancelled'};
+  const t = orderTotal(o), p = paidFor(o.id);
+  if (t <= 0 && p <= 0) return {k:'none', t:'No total yet'};
+  if (p >= t - 0.005) return {k:'paid', t:'Paid'};
+  if (p > 0) return {k:'part', t:'Part paid'};
+  return {k:'unpaid', t:'Unpaid'};
+}
+const balance = o => o.status === 'cancelled' ? 0 : Math.max(0, orderTotal(o) - paidFor(o.id));
+const orderById = id => S.orders.find(o => o.id === id);
+const orderLabel = o => `#${o.id} · ${o.customer || 'No name'}`;
+
+/* ---------- small UI helpers ---------- */
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=> t.hidden = true, 2600); }
+function errMsg(err){
+  const st = err && err.status, b = (err && err.body) || {};
+  if (st === 401) return 'You’ve been signed out. Reload the page and sign in again.';
+  if (st === 413 || st === 415) return b.error || 'That file can’t be uploaded. Use a photo or a PDF under 4 MB.';
+  if (b.error && st !== 500) return b.error;
+  if (err && err.offline) return 'No internet connection. Check your signal and try again.';
+  return 'Couldn’t save. Check your connection and try again.';
+}
+async function api(path, opts){
+  opts = opts || {};
+  let r;
+  try { r = await fetch(path, { credentials:'same-origin', ...opts }); }
+  catch(e){ const x = new Error('offline'); x.offline = true; throw x; }
+  let body = null; try { body = await r.json(); } catch(e){}
+  if (!r.ok){ const x = new Error((body && body.error) || 'Request failed'); x.status = r.status; x.body = body || {}; throw x; }
+  return body;
+}
+const db = {
+  async save(collection, id, data){ const j = await api('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'save', collection, id: id || null, data }) }); await refresh(); return j; },
+  async remove(collection, id){ await api('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'delete', collection, id }) }); await refresh(); },
+};
+const strip = r => { const o = {...r}; delete o.id; return o; };
+const receiptUrl = id => '/api/receipt?id=' + encodeURIComponent(id);
+async function uploadReceipt(blob, type){ return api('/api/receipt', { method:'POST', headers:{'Content-Type':type}, body: blob }); }
+function trashReceipt(id){ return api(receiptUrl(id), { method:'DELETE' }).catch(() => {}); }
+function dateBox(iso){
+  if (!iso) return `<div class="datebox"><b>–</b><i>date</i></div>`;
+  const d = toD(iso);
+  return `<div class="datebox ${iso===todayISO()?'today':''}"><b class="num">${d.getDate()}</b><i>${d.toLocaleDateString('en-AU',{month:'short'})}</i></div>`;
+}
+function whenText(o){
+  const parts = [];
+  if (o.date){ const dd = dayDiff(o.date); parts.push(dd===0?'Today':dd===1?'Tomorrow':dd===-1?'Yesterday':fmtDate(o.date)); }
+  if (o.time) parts.push(fmtTime(o.time));
+  parts.push(o.fulfilment === 'delivery' ? 'Delivery' : 'Pickup');
+  return parts.join(' · ');
+}
+function orderSummary(o){
+  if (o.type === 'farsan'){ const it = (o.items||[]).filter(i=>i.name); return it.length ? it.map(i=>`${i.name}${i.qty?` ${i.qty}${i.unit||''}`:''}`).join(', ') : 'No items yet'; }
+  return [o.guests ? `${o.guests} guests` : null, o.perGuest ? `${money(o.perGuest)}/head` : null, o.occasion||null].filter(Boolean).join(' · ') || 'Catering';
+}
+function orderRow(o){
+  const ps = payState(o);
+  return `<button class="row" data-act="open-order" data-id="${esc(o.id)}">
+    ${dateBox(o.date)}
+    <div class="main"><div class="t">${esc(o.customer||'No name')} <span class="tag ${o.type}">${o.type==='farsan'?'Farsan/Sweet':'Catering'}</span></div>
+      <div class="m">#${esc(o.id)} · ${esc(whenText(o))}</div>
+      <div class="m">${esc(orderSummary(o))}</div></div>
+    <div class="r"><span class="amt num">${money(orderTotal(o))}</span><span class="pill p-${ps.k}">${ps.t}</span></div>
+  </button>`;
+}
+function nameOf(v){ return v || ''; }
+
+/* ---------- main views ---------- */
+const ICONS = {
+  dash:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  cal:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/></svg>',
+  orders:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+  expenses:'<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
+  payments:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/></svg>'
+};
+function renderTabs(){
+  const tabs = [['dash','Dashboard'],['cal','Calendar'],['orders','Orders'],['expenses','Expenses'],['payments','Payments']];
+  $('#tabs').innerHTML = tabs.map(([k,l]) => `<button data-act="tab" data-id="${k}" ${S.tab===k?'aria-current="page"':''}>${ICONS[k]}${l}</button>`).join('');
+}
+function loadingOrBlocked(){
+  if (S.status === 'signin') return `<div class="signin"><h1 class="view">Satvik order book</h1><p class="sub">Sign in with the Google account your email was added with.</p><div id="gbtn"></div>${S.signinMsg ? `<div class="err" style="margin-top:14px">${esc(S.signinMsg)}</div>` : ''}</div>`;
+  if (S.status === 'config') return `<div class="empty" style="margin-top:24px;text-align:left"><b>Almost set up</b>Add these environment variables in Vercel (Project → Settings → Environment Variables), then redeploy:<ul>${S.missing.map(m => `<li><code>${esc(m)}</code></li>`).join('')}</ul>${S.missing.includes('SESSION_SECRET') ? `<p>For <code>SESSION_SECRET</code> you can use this freshly made random value:</p><p><code style="user-select:all;word-break:break-all">${esc(randomSecret())}</code></p>` : ''}</div>`;
+  if (S.status === 'setup') return S.isOwner
+    ? `<div class="empty" style="margin-top:24px"><b>Connect your Google Drive</b>The app will create a “Satvik Orders” sheet and a “Satvik Receipts” folder in your Drive and keep everything there.<div style="margin-top:14px"><a class="btn" href="/api/setup/start" style="text-decoration:none;display:inline-block">Connect Google Drive</a></div></div>`
+    : `<div class="empty" style="margin-top:24px"><b>Waiting for setup</b>The owner still needs to connect Google Drive. Try again once they have.</div>`;
+  if (S.status === 'error') return `<div class="empty" style="margin-top:24px"><b>Couldn’t load the orders</b>${esc(S.errorMsg || 'Check your connection.')}<div style="margin-top:12px"><button class="btn ghost" data-act="retry">Try again</button></div></div>`;
+  if (S.status === 'loading' || !S.loaded.orders) return `<div class="empty" style="margin-top:24px"><b>Loading orders…</b>Catering orders, farsan/sweet orders, receipts and payments will appear here.</div>`;
+  return null;
+}
+function randomSecret(){ const a = new Uint8Array(32); crypto.getRandomValues(a); return Array.from(a, x => x.toString(16).padStart(2,'0')).join(''); }
+function renderMain(){
+  renderTabs();
+  $('#today-lbl').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+  $('#fab').hidden = S.canWrite === false || S.status !== 'ready';
+  const m = $('#main');
+  const block = loadingOrBlocked();
+  if (block){ m.innerHTML = block; return; }
+  m.innerHTML = ({dash:viewDashboard, cal:viewCalendar, orders:viewOrders, expenses:viewExpenses, payments:viewPayments}[S.tab])();
+}
+
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const firstName = n => (n||'Order').trim().split(/\s+/)[0];
+const compact = n => n >= 1000 ? '$' + (n/1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/,'') + 'k' : '$' + Math.round(n);
+const sum = (arr, f) => arr.reduce((s,x)=> s + f(x), 0);
+
+/* ---------- dashboard ---------- */
+function periodRange(k){
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  if (k === 'month') return [isoOf(new Date(y,m,1)), isoOf(new Date(y,m+1,0)), d.toLocaleDateString('en-AU',{month:'long'})];
+  if (k === 'last'){ const s0 = new Date(y,m-1,1); return [isoOf(s0), isoOf(new Date(y,m,0)), s0.toLocaleDateString('en-AU',{month:'long'})]; }
+  if (k === 'fy'){ const fy = m >= 6 ? y : y-1; return [`${fy}-07-01`, `${fy+1}-06-30`, `FY ${fy}–${String(fy+1).slice(2)}`]; }
+  return ['0000-01-01','9999-12-31','all time'];
+}
+const inR = (iso, R) => !!iso && iso >= R[0] && iso <= R[1];
+function niceMax(v){ if (v <= 0) return 100; const p = Math.pow(10, Math.floor(Math.log10(v))); const f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+function topBar(x, y, w, h, r){ if (h <= 0) return ''; r = Math.min(r, w/2, h); return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`; }
+function monthsChart(){
+  const now = new Date(), months = [];
+  for (let i = -4; i <= 1; i++){ const d = new Date(now.getFullYear(), now.getMonth()+i, 1); months.push({ key: isoOf(d).slice(0,7), label: d.toLocaleDateString('en-AU',{month:'short'}), future: i > 0 }); }
+  months.forEach(mo => {
+    mo.a = sum(S.orders.filter(o => o.status !== 'cancelled' && monthKey(o.date) === mo.key), orderTotal);
+    mo.b = sum(S.expenses.filter(e => monthKey(e.date) === mo.key), e => num(e.amount));
+  });
+  const W = 640, H = 230, pl = 46, pr = 8, pt = 14, pb = 26, ih = H - pt - pb;
+  const max = niceMax(Math.max(...months.map(m => Math.max(m.a, m.b))));
+  const gw = (W - pl - pr) / months.length, bw = Math.min(26, (gw - 18) / 2);
+  const y = v => pt + ih - (v / max) * ih;
+  let g = '<g class="grid">';
+  for (let i = 0; i <= 4; i++){ const v = max * i / 4; g += `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end">${compact(v)}</text>`; }
+  g += '</g>';
+  let bars = '', hits = '', labels = '';
+  months.forEach((mo, i) => {
+    const cx = pl + gw * i + gw / 2, x1 = cx - bw - 1, x2 = cx + 1;
+    bars += `<path class="bar-c1" d="${topBar(x1, y(mo.a), bw, pt + ih - y(mo.a), 4)}"/><path class="bar-c2" d="${topBar(x2, y(mo.b), bw, pt + ih - y(mo.b), 4)}"/>`;
+    labels += `<text x="${cx}" y="${H-8}" text-anchor="middle">${mo.label}${mo.future ? ' ·' : ''}</text>`;
+    const tip = `<b>${esc(mo.label)}${mo.future ? ' (booked ahead)' : ''}</b>Sales ${money(mo.a)}<br>Expenses ${money(mo.b)}<br>Difference ${money(mo.a - mo.b)}`;
+    hits += `<rect class="hitcol" x="${pl + gw*i}" y="${pt}" width="${gw}" height="${ih}" data-tip="${esc(tip)}"/>`;
+  });
+  const table = `<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Show the numbers</summary><table class="rank" style="margin-top:6px"><tr><td><b>Month</b></td><td class="n"><b>Sales booked</b></td><td class="n"><b>Expenses</b></td></tr>${months.map(mo => `<tr><td>${mo.label}</td><td class="n num">${money(mo.a)}</td><td class="n num">${money(mo.b)}</td></tr>`).join('')}</table></details>`;
+  return `<div class="panel"><h3>Sales booked vs expenses, by month</h3>
+    <div class="legend" style="margin:0 0 6px"><span><i style="background:var(--c1)"></i>Sales booked (by event date)</span><span><i style="background:var(--c2)"></i>Expenses</span></div>
+    <div class="chart-wrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly sales booked and expenses">${g}${hits}${bars}${labels}</svg><div class="ctip" hidden></div></div>${table}</div>`;
+}
+function hbars(rows){
+  if (!rows.length) return `<p class="hint">Nothing in this period.</p>`;
+  const max = Math.max(...rows.map(r => r[1]));
+  return rows.map(([k,v,extra]) => `<div class="hbar"><span>${esc(k)}${extra ? ` <span class="hint">${esc(extra)}</span>` : ''}</span><b class="num">${money(v)}</b><div class="track"><div class="fill" style="width:${max ? (v/max*100).toFixed(1) : 0}%"></div></div></div>`).join('');
+}
+function viewDashboard(){
+  const R = periodRange(S.dperiod), t = todayISO();
+  const ords = S.orders.filter(o => o.status !== 'cancelled' && inR(o.date, R));
+  const cat = ords.filter(o => o.type !== 'farsan'), far = ords.filter(o => o.type === 'farsan');
+  const sales = sum(ords, orderTotal), catSales = sum(cat, orderTotal), farSales = sum(far, orderTotal);
+  const pays = S.payments.filter(p => inR(p.date, R)), exps = S.expenses.filter(e => inR(e.date, R));
+  const received = sum(pays, p => num(p.amount)), spent = sum(exps, e => num(e.amount));
+  const guests = sum(cat, o => num(o.guests)), headRev = sum(cat, o => num(o.guests) * num(o.perGuest));
+  const owed = sum(S.orders, balance);
+  const profit = sales - spent;
+  const chip = (k,l) => `<button class="chip" data-act="dperiod" data-id="${k}" aria-pressed="${S.dperiod===k}">${l}</button>`;
+  const soon = S.orders.filter(o => o.status !== 'cancelled' && o.status !== 'done' && o.date && o.date >= t && dayDiff(o.date) <= 7)
+    .sort((a,b)=> (a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+  const owing = S.orders.filter(o => balance(o) > 0.005 && o.date && o.date < t).sort((a,b)=> a.date.localeCompare(b.date));
+  const byCat = {}; exps.forEach(e => byCat[e.category||'Other'] = (byCat[e.category||'Other']||0) + num(e.amount));
+  const byMethod = {}; pays.forEach(p => byMethod[p.method||'Other'] = (byMethod[p.method||'Other']||0) + num(p.amount));
+  const items = {}; far.forEach(o => (o.items||[]).forEach(i => { const k = (i.name||'').trim(); if (!k) return; const u = items[k] = items[k] || {rev:0, qty:{}}; u.rev += num(i.qty)*num(i.price); u.qty[i.unit||''] = (u.qty[i.unit||'']||0) + num(i.qty); }));
+  const topItems = Object.entries(items).sort((a,b)=> b[1].rev - a[1].rev).slice(0,6);
+  const cust = {}; ords.forEach(o => { const k = (o.customer||'No name').trim(); const c = cust[k] = cust[k] || {rev:0, n:0}; c.rev += orderTotal(o); c.n++; });
+  const topCust = Object.entries(cust).sort((a,b)=> b[1].rev - a[1].rev).slice(0,6);
+  const pc = v => sales > 0 ? Math.round(v / sales * 100) : 0;
+
+  let h = `<h1 class="view">Dashboard</h1>
+    <div class="chips">${chip('month','This month')}${chip('last','Last month')}${chip('fy','This financial year')}${chip('all','All time')}</div>
+    <div class="kpis">
+      <div class="kpi hero"><small>Profit · ${esc(R[2])}</small><strong class="num">${money(profit)}</strong><em>${sales > 0 ? Math.round(profit/sales*100) + '% margin' : 'sales minus expenses'}</em></div>
+      <div class="kpi"><small>Sales booked</small><strong class="num">${money(sales)}</strong><em>${ords.length} order${ords.length===1?'':'s'}</em></div>
+      <div class="kpi"><small>Money received</small><strong class="num">${money(received)}</strong><em>${pays.length} payment${pays.length===1?'':'s'}</em></div>
+      <div class="kpi"><small>Expenses</small><strong class="num">${money(spent)}</strong><em>${exps.length} receipt${exps.length===1?'':'s'}</em></div>
+      <button class="kpi tile owe" data-act="filter-owing" style="text-align:left"><small>Still to collect</small><strong class="num">${money(owed)}</strong><em>all orders, any date</em></button>
+      <div class="kpi"><small>Catering guests</small><strong class="num">${guests.toLocaleString('en-AU')}</strong><em>${guests ? money(headRev/guests) + ' avg per head' : 'no catering yet'}</em></div>
+      <div class="kpi"><small>Average order</small><strong class="num">${ords.length ? money(sales/ords.length) : '–'}</strong><em>catering ${cat.length} · farsan/sweet ${far.length}</em></div>
+      <div class="kpi"><small>Collected</small><strong class="num">${sales > 0 ? Math.min(100, Math.round(sum(ords, o => Math.min(orderTotal(o), paidFor(o.id))) / sales * 100)) + '%' : '–'}</strong><em>of this period’s orders paid</em></div>
+    </div>`;
+  h += `<h2 class="sec">Next 7 days</h2>` + (soon.length ? `<div class="list">${soon.map(orderRow).join('')}</div>` : `<div class="empty"><b>Nothing booked for the next 7 days</b>See the Calendar for later dates.</div>`);
+  if (owing.length) h += `<h2 class="sec">Past orders still owing</h2><div class="list">${owing.map(orderRow).join('')}</div>`;
+  h += `<h2 class="sec">Trends</h2>${monthsChart()}`;
+  h += `<h2 class="sec">Breakdown · ${esc(R[2])}</h2><div class="panels">
+    <div class="panel"><h3>Catering vs farsan/sweet sales</h3>
+      ${sales > 0 ? `<div class="split"><div style="width:${pc(catSales)}%;background:var(--c2)"></div><div style="width:${pc(farSales)}%;background:var(--c1)"></div></div>` : ''}
+      <table class="rank"><tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c2);margin-right:6px"></i>Catering · ${cat.length}</td><td class="n num">${money(catSales)} <span class="hint">${pc(catSales)}%</span></td></tr>
+      <tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c1);margin-right:6px"></i>Farsan/Sweet · ${far.length}</td><td class="n num">${money(farSales)} <span class="hint">${pc(farSales)}%</span></td></tr></table></div>
+    <div class="panel"><h3>Expenses by category</h3>${hbars(Object.entries(byCat).sort((a,b)=> b[1]-a[1]))}</div>
+    <div class="panel"><h3>Payments by method</h3>${hbars(Object.entries(byMethod).sort((a,b)=> b[1]-a[1]))}</div>
+    <div class="panel"><h3>Top customers</h3>${topCust.length ? `<table class="rank">${topCust.map(([k,c]) => `<tr><td>${esc(k)} <span class="hint">${c.n} order${c.n>1?'s':''}</span></td><td class="n num">${money(c.rev)}</td></tr>`).join('')}</table>` : '<p class="hint">Nothing in this period.</p>'}</div>
+    <div class="panel"><h3>Best-selling farsan &amp; sweets</h3>${topItems.length ? `<table class="rank">${topItems.map(([k,u]) => `<tr><td>${esc(k)} <span class="hint">${Object.entries(u.qty).map(([un,q]) => `${+q.toFixed(2)} ${un}`).join(', ')}</span></td><td class="n num">${money(u.rev)}</td></tr>`).join('')}</table>` : '<p class="hint">No farsan/sweet orders in this period.</p>'}</div>
+  </div>`;
+  if (S.links.sheet) h += `<p class="hint" style="margin-top:22px">Everything is also kept in Google Drive: <a href="${esc(S.links.sheet)}" target="_blank" rel="noopener">Satvik Orders sheet</a> · <a href="${esc(S.links.folder)}" target="_blank" rel="noopener">Satvik Receipts folder</a></p>`;
+  return h;
+}
+
+/* ---------- calendar ---------- */
+function viewCalendar(){
+  const { y, m } = S.cal, t = todayISO();
+  const sel = S.cal.sel || (monthKey(t) === isoOf(new Date(y,m,1)).slice(0,7) ? t : isoOf(new Date(y,m,1)));
+  const off = (new Date(y,m,1).getDay() + 6) % 7, dim = new Date(y,m+1,0).getDate();
+  const cells = Math.ceil((off + dim) / 7) * 7;
+  const byDate = {};
+  S.orders.forEach(o => { if (o.date) (byDate[o.date] = byDate[o.date] || []).push(o); });
+  Object.values(byDate).forEach(l => l.sort((a,b)=> (a.status==='cancelled') - (b.status==='cancelled') || (a.time||'99').localeCompare(b.time||'99')));
+  let grid = '';
+  for (let i = 0; i < cells; i++){
+    const d = new Date(y, m, 1 - off + i), iso = isoOf(d), out = d.getMonth() !== m;
+    const list = byDate[iso] || [], live = list.filter(o => o.status !== 'cancelled');
+    const chips = list.slice(0,3).map(o => `<span class="ev ${o.status==='cancelled' ? 'cancelled' : o.type}">${o.time ? `<span class="tm">${fmtTime(o.time)} </span>` : ''}${esc(firstName(o.customer))}</span>`).join('');
+    grid += `<button class="cal-day ${out?'out':''} ${live.length?'has':''} ${iso===t?'today':''}" data-act="cal-sel" data-id="${iso}" aria-pressed="${iso===sel}" aria-label="${esc(fmtDate(iso,{weekday:'long',day:'numeric',month:'long'}))}, ${live.length} order${live.length===1?'':'s'}">
+      <span class="dn num">${d.getDate()}</span>${chips}${list.length > 3 ? `<span class="ev-more">+${list.length-3} more</span>` : ''}</button>`;
+  }
+  const mk = isoOf(new Date(y,m,1)).slice(0,7);
+  const monthOrders = S.orders.filter(o => o.status !== 'cancelled' && monthKey(o.date) === mk);
+  const mGuests = sum(monthOrders.filter(o => o.type !== 'farsan'), o => num(o.guests));
+  const dayList = (byDate[sel] || []);
+  const dayLive = dayList.filter(o => o.status !== 'cancelled');
+  const w = S.canWrite !== false;
+  return `<div class="cal-nav">
+      <button class="icon-btn" data-act="cal-move" data-id="-1" aria-label="Previous month">‹</button>
+      <h1>${new Date(y,m,1).toLocaleDateString('en-AU',{month:'long',year:'numeric'})}</h1>
+      <button class="chip" data-act="cal-today">Today</button>
+      <button class="icon-btn" data-act="cal-move" data-id="1" aria-label="Next month">›</button></div>
+    <p class="sub">${monthOrders.length} order${monthOrders.length===1?'':'s'} this month${mGuests ? ` · ${mGuests.toLocaleString('en-AU')} catering guests` : ''} · ${money(sum(monthOrders, orderTotal))} booked</p>
+    <div class="cal"><div class="cal-dow">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x => `<div>${x}</div>`).join('')}</div><div class="cal-grid">${grid}</div></div>
+    <div class="legend"><span><i style="background:var(--ev-cat)"></i>Catering</span><span><i style="background:var(--ev-far)"></i>Farsan/Sweet</span><span><i style="background:var(--sunk);border:1px solid var(--line)"></i>Cancelled</span></div>
+    <div class="day-head"><h2 class="sec">${esc(fmtDate(sel,{weekday:'long',day:'numeric',month:'long'}))}${sel===t?' · Today':''}</h2>
+      ${dayLive.length ? `<span class="hint">${dayLive.length} order${dayLive.length===1?'':'s'} · ${money(sum(dayLive, orderTotal))}${sum(dayLive.filter(o=>o.type!=='farsan'), o=>num(o.guests)) ? ' · ' + sum(dayLive.filter(o=>o.type!=='farsan'), o=>num(o.guests)) + ' guests' : ''}</span>` : ''}</div>
+    ${dayList.length ? `<div class="list">${dayList.map(orderRow).join('')}</div>` : `<div class="empty"><b>No orders on this day</b>${w ? 'Add one below.' : ''}</div>`}
+    ${w ? `<div class="btns" style="margin-top:12px"><button class="btn" data-act="new-order" data-id="catering" data-date="${sel}">+ Catering on this day</button><button class="btn warn" data-act="new-order" data-id="farsan" data-date="${sel}">+ Farsan/Sweet on this day</button></div>` : ''}`;
+}
+
+function viewOrders(){
+  const t = todayISO(), q = S.q.trim().toLowerCase();
+  let list = S.orders.slice();
+  if (S.otype !== 'all') list = list.filter(o => o.type === S.otype);
+  if (S.ofilter === 'upcoming') list = list.filter(o => o.status !== 'cancelled' && (!o.date || o.date >= t)).sort((a,b)=> ((a.date||'9')+(a.time||'')).localeCompare((b.date||'9')+(b.time||'')));
+  else if (S.ofilter === 'past') list = list.filter(o => o.date && o.date < t).sort((a,b)=> (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  else if (S.ofilter === 'owing') list = list.filter(o => balance(o) > 0.005).sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+  else list.sort((a,b)=> num(b.id) - num(a.id));
+  if (q) list = list.filter(o => [o.id, o.customer, o.phone, o.occasion, o.menu, o.notes, ...(o.items||[]).map(i=>i.name)].join(' ').toLowerCase().includes(q));
+  const chip = (k,l,cur,act) => `<button class="chip" data-act="${act}" data-id="${k}" aria-pressed="${cur===k}">${l}</button>`;
+  return `<h1 class="view">Orders</h1>
+    <div class="chips">${chip('upcoming','Upcoming',S.ofilter,'ofilter')}${chip('owing','Owing',S.ofilter,'ofilter')}${chip('past','Past',S.ofilter,'ofilter')}${chip('all','All',S.ofilter,'ofilter')}
+      <span style="width:8px"></span>${chip('all','Both types',S.otype,'otype')}${chip('catering','Catering',S.otype,'otype')}${chip('farsan','Farsan/Sweet',S.otype,'otype')}</div>
+    <input class="search" id="order-search" type="search" placeholder="Search name, phone, dish or order #" value="${esc(S.q)}" aria-label="Search orders">
+    <div style="height:12px"></div>
+    ${list.length ? `<div class="list">${list.map(orderRow).join('')}</div>` : `<div class="empty"><b>No orders here</b>${S.orders.length ? 'Try another filter or search.' : 'Tap New to add your first catering or farsan order.'}</div>`}`;
+}
+
+function expenseRow(e){
+  const ords = (e.orderIds||[]).map(id => orderById(id)).filter(Boolean);
+  const link = ords.length ? ords.map(o=>`#${o.id}`).join(', ') : 'Not linked to an order';
+  const th = e.receiptId ? (e.receiptType === 'application/pdf' ? `<div class="thumb">PDF</div>` : `<img class="thumb" src="${receiptUrl(e.receiptId)}" alt="" loading="lazy">`) : `<div class="thumb">—</div>`;
+  return `<button class="row" data-act="open-expense" data-id="${esc(e.id)}">${th}
+    <div class="main"><div class="t">${esc(e.vendor || e.category || 'Expense')}</div>
+      <div class="m">${esc(fmtDate(e.date))} · ${esc(e.category||'Other')}</div>
+      <div class="m">${esc(link)}</div></div>
+    <div class="r"><span class="amt num">${money(e.amount)}</span>${(e.orderIds||[]).length>1?`<span class="hint">split ${e.orderIds.length} ways</span>`:''}</div></button>`;
+}
+function groupByMonth(rows, render){
+  const g = {};
+  rows.forEach(r => { const k = monthKey(r.date) || 'none'; (g[k] = g[k] || []).push(r); });
+  return Object.keys(g).sort().reverse().map(k => {
+    const total = g[k].reduce((s,r)=> s + num(r.amount), 0);
+    const label = k === 'none' ? 'No date' : toD(k + '-01').toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+    return `<h2 class="sec">${label} · <span class="num">${money(total)}</span></h2><div class="list">${g[k].map(render).join('')}</div>`;
+  }).join('');
+}
+function viewExpenses(){
+  if (!S.loaded.expenses) return `<h1 class="view">Expenses</h1><div class="empty">Loading receipts…</div>`;
+  const rows = S.expenses.slice().sort((a,b)=> ((b.date||'')+(b.createdAt||0)).localeCompare((a.date||'')+(a.createdAt||0)));
+  const unlinked = rows.filter(e => !(e.orderIds||[]).length).length;
+  return `<h1 class="view">Expenses</h1><p class="sub">Shopping, packaging, fuel and anything else spent on orders. ${unlinked ? `${unlinked} not linked to an order.` : ''}</p>
+    ${rows.length ? groupByMonth(rows, expenseRow) : `<div class="empty"><b>No receipts yet</b>Tap New, then Add expense, to snap a receipt and link it to one or more orders.</div>`}`;
+}
+function paymentRow(p){
+  const o = orderById(p.orderId);
+  return `<button class="row" data-act="edit-payment" data-id="${esc(p.id)}">
+    <div class="datebox"><b class="num">${p.date ? toD(p.date).getDate() : '–'}</b><i>${p.date ? toD(p.date).toLocaleDateString('en-AU',{month:'short'}) : ''}</i></div>
+    <div class="main"><div class="t">${o ? esc(orderLabel(o)) : 'Order removed'}</div>
+      <div class="m">${esc(p.method||'')}${p.note ? ' · ' + esc(p.note) : ''}</div></div>
+    <div class="r"><span class="amt num">${money(p.amount)}</span></div></button>`;
+}
+function viewPayments(){
+  if (!S.loaded.payments) return `<h1 class="view">Payments</h1><div class="empty">Loading payments…</div>`;
+  const mk = monthKey(todayISO());
+  const thisMonth = S.payments.filter(p => monthKey(p.date) === mk);
+  const byM = METHODS.map(m => [m, thisMonth.filter(p => p.method === m).reduce((s,p)=> s + num(p.amount), 0)]).filter(x => x[1] > 0);
+  const rows = S.payments.slice().sort((a,b)=> ((b.date||'')+(b.createdAt||0)).localeCompare((a.date||'')+(a.createdAt||0)));
+  return `<h1 class="view">Payments</h1><p class="sub">Every deposit and payment received, cash or card.</p>
+    ${byM.length ? `<div class="tiles">${byM.map(([m,v]) => `<div class="tile"><small>${m} this month</small><strong class="num">${money(v)}</strong></div>`).join('')}</div>` : ''}
+    ${rows.length ? groupByMonth(rows, paymentRow) : `<div class="empty" style="margin-top:14px"><b>No payments recorded</b>When a customer pays, tap New, then Record payment.</div>`}`;
+}
+
+/* ---------- sheets ---------- */
+const isDetail = () => { const t = top(); return t && (t.kind === 'order' || t.kind === 'expense'); };
+function openSheet(s){ S.confirm = null; S.stack.push(s); renderSheet(); }
+function closeSheet(){ S.stack.pop(); S.confirm = null; S.upload = null; renderSheet(); }
+function closeAll(){ S.stack = []; S.confirm = null; S.upload = null; renderSheet(); }
+function renderSheet(){
+  const host = $('#sheet-host'), t = top();
+  if (!t){ host.hidden = true; host.innerHTML = ''; document.body.style.overflow = ''; return; }
+  const prev = host.querySelector('.sheet-body'); const keep = prev && prev.dataset.key === sheetKey(t) ? prev.scrollTop : 0;
+  const v = ({menu:sheetMenu, 'order-form':sheetOrderForm, order:sheetOrder, 'expense-form':sheetExpenseForm, expense:sheetExpense, 'payment-form':sheetPaymentForm}[t.kind])(t);
+  host.hidden = false; document.body.style.overflow = 'hidden';
+  host.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(v.title)}">
+    <div class="sheet-head">${S.stack.length > 1 ? `<button class="icon-btn" data-act="back" aria-label="Back">‹</button>` : ''}<h3>${esc(v.title)}</h3><button class="icon-btn" data-act="close" aria-label="Close">×</button></div>
+    <div class="sheet-body" data-key="${esc(sheetKey(t))}">${v.body}</div></div></div>`;
+  const body = host.querySelector('.sheet-body'); body.scrollTop = keep;
+  if (v.mount) v.mount(host);
+}
+const sheetKey = t => t.kind + ':' + (t.id || '');
+
+function sheetMenu(){
+  return { title:'Add new', body:`<div class="ac-list">
+    <button class="btn" data-act="new-order" data-id="catering">Catering order<small>Event date, guests, price per head, menu</small></button>
+    <button class="btn" data-act="new-order" data-id="farsan">Farsan/Sweet order<small>Takeaway like sev khamani, dhokla, laddu, mohanthal</small></button>
+    <button class="btn warn" data-act="new-expense">Add expense / receipt<small>Snap the receipt and pick the order(s)</small></button>
+    <button class="btn ghost" data-act="new-payment">Record payment<small>Cash, card or transfer against an order</small></button></div>` };
+}
+
+/* order form */
+function itemRow(it){
+  it = it || {};
+  return `<div class="item-row">
+    <input class="i-name" list="farsan-list" placeholder="Item e.g. Sev khamani" value="${esc(it.name)}" aria-label="Item">
+    <input class="i-qty" type="number" inputmode="decimal" step="any" min="0" placeholder="Qty" value="${esc(it.qty)}" aria-label="Quantity">
+    <select class="i-unit" aria-label="Unit">${UNITS.map(u => `<option ${u === (it.unit||'kg') ? 'selected' : ''}>${u}</option>`).join('')}</select>
+    <input class="i-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="$ each" value="${esc(it.price)}" aria-label="Price per unit">
+    <button type="button" class="icon-btn" data-act="rm-item" aria-label="Remove item">×</button></div>`;
+}
+function sheetOrderForm(t){
+  const o = t.id ? (orderById(t.id) || {}) : { type:t.type, date:t.date||'', status:'confirmed', fulfilment:'pickup', items:[{},{}] };
+  const type = o.type || t.type || 'catering';
+  const cat = type === 'catering';
+  const statusOpts = STATUSES.map(([k,l]) => `<option value="${k}" ${o.status===k?'selected':''}>${l}</option>`).join('');
+  const body = `<form id="order-form" data-id="${esc(t.id||'')}" novalidate>
+    <input type="hidden" name="type" value="${type}">
+    <div id="form-err"></div>
+    <div class="field"><label for="f-customer">Customer name</label><input id="f-customer" name="customer" required value="${esc(o.customer)}" autocomplete="off"></div>
+    <div class="grid2"><div class="field"><label for="f-phone">Phone</label><input id="f-phone" name="phone" type="tel" value="${esc(o.phone)}"></div>
+      <div class="field"><label for="f-status">Status</label><select id="f-status" name="status">${statusOpts}</select></div></div>
+    ${cat ? `<div class="field"><label for="f-occasion">Occasion</label><input id="f-occasion" name="occasion" placeholder="e.g. Diwali lunch, birthday, office function" value="${esc(o.occasion)}"></div>` : ''}
+    <div class="grid2"><div class="field"><label for="f-date">${cat?'Event date':'Pickup / delivery date'}</label><input id="f-date" name="date" type="date" required value="${esc(o.date)}"></div>
+      <div class="field"><label for="f-time">Time</label><input id="f-time" name="time" type="time" value="${esc(o.time)}"></div></div>
+    <div class="field"><span class="lbl">Delivery or pickup</span><div class="seg">
+      <label><input type="radio" name="fulfilment" value="pickup" ${o.fulfilment!=='delivery'?'checked':''}><span>Pickup</span></label>
+      <label><input type="radio" name="fulfilment" value="delivery" ${o.fulfilment==='delivery'?'checked':''}><span>Delivery</span></label></div></div>
+    <div class="field" id="addr-field" ${o.fulfilment==='delivery'?'':'hidden'}><label for="f-address">Delivery address</label><input id="f-address" name="address" value="${esc(o.address)}"></div>
+    ${cat ? `<div class="grid2"><div class="field"><label for="f-guests">Guest count</label><input id="f-guests" name="guests" type="number" inputmode="numeric" min="0" value="${esc(o.guests)}"></div>
+      <div class="field"><label for="f-perGuest">Price per guest ($)</label><input id="f-perGuest" name="perGuest" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(o.perGuest)}"></div></div>
+      <div class="field"><label for="f-menu">Menu</label><textarea id="f-menu" name="menu" placeholder="One dish per line">${esc(o.menu)}</textarea></div>`
+    : `<span class="lbl">Items</span><div class="items" id="items">${(o.items && o.items.length ? o.items : [{}]).map(itemRow).join('')}</div>
+      <button type="button" class="btn ghost" data-act="add-item" style="margin-bottom:16px">+ Add item</button>`}
+    <div class="grid2"><div class="field"><label for="f-deliveryFee">Delivery fee ($)</label><input id="f-deliveryFee" name="deliveryFee" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(o.deliveryFee)}"></div>
+      <div class="field"><label for="f-otherAmount">Other charges ($)</label><input id="f-otherAmount" name="otherAmount" type="number" inputmode="decimal" step="any" value="${esc(o.otherAmount)}"></div></div>
+    <div class="field"><label for="f-notes">Other details</label><textarea id="f-notes" name="notes" placeholder="Dietary needs (Jain, no onion-garlic), serving staff, what the other charges are for…">${esc(o.notes)}</textarea></div>
+    <div class="totalbar"><span>Order total</span><b class="num" id="f-total">${money(orderTotal(o))}</b></div>
+    <div class="btns"><button class="btn" type="submit" id="save-btn">${t.id ? 'Save changes' : 'Save order'}</button></div>
+  </form>`;
+  return { title: t.id ? `Edit order #${t.id}` : (cat ? 'New catering order' : 'New farsan/sweet order'), body, mount: h => {
+    const f = h.querySelector('#order-form');
+    const upd = () => { $('#f-total').textContent = money(orderTotal(readOrderForm(f))); $('#addr-field').hidden = f.querySelector('input[name=fulfilment]:checked').value !== 'delivery'; };
+    f.addEventListener('input', upd); f.addEventListener('change', e => {
+      if (e.target.classList.contains('i-name')){ const row = e.target.closest('.item-row'); const p = row.querySelector('.i-price'); if (!p.value){ const lp = lastPrice(e.target.value, row.querySelector('.i-unit').value); if (lp) { p.value = lp; upd(); } } }
+      upd(); });
+    if (!t.id) setTimeout(() => { try { $('#f-customer').focus({preventScroll:true}); } catch(e){} }, 50);
+  }};
+}
+function lastPrice(name, unit){
+  const n = (name||'').trim().toLowerCase(); if (!n) return null;
+  const orders = S.orders.filter(o => o.type === 'farsan').sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  for (const o of orders) for (const i of (o.items||[])) if ((i.name||'').trim().toLowerCase() === n && (i.unit||'kg') === unit && num(i.price) > 0) return i.price;
+  return null;
+}
+function readOrderForm(f){
+  const fd = new FormData(f);
+  const g = k => (fd.get(k) || '').toString().trim();
+  const o = { type:g('type'), customer:g('customer'), phone:g('phone'), status:g('status')||'confirmed', date:g('date'), time:g('time'),
+    fulfilment:g('fulfilment')||'pickup', address:g('address'), deliveryFee:num(g('deliveryFee')), otherAmount:num(g('otherAmount')), notes:g('notes') };
+  if (o.type === 'catering'){ o.occasion = g('occasion'); o.guests = num(g('guests')); o.perGuest = num(g('perGuest')); o.menu = g('menu'); }
+  else o.items = [...f.querySelectorAll('.item-row')].map(r => ({ name:r.querySelector('.i-name').value.trim(), qty:num(r.querySelector('.i-qty').value), unit:r.querySelector('.i-unit').value, price:num(r.querySelector('.i-price').value) })).filter(i => i.name);
+  return o;
+}
+async function saveOrder(f, btn){
+  const data = readOrderForm(f), id = f.dataset.id, err = $('#form-err');
+  if (!data.customer || !data.date){ err.innerHTML = `<div class="err">Add the customer name and date to save.</div>`; err.scrollIntoView({block:'nearest'}); return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    if (id){
+      const prev = strip(orderById(id) || {});
+      if (data.type === 'catering') delete prev.items;
+      await db.save('orders', id, { ...prev, ...data });
+      toast(`Order #${id} updated`);
+      closeSheet();
+    } else {
+      const j = await db.save('orders', null, data);
+      toast(`Order #${j.id} saved`);
+      S.stack = []; openSheet({kind:'order', id:j.id});
+    }
+  } catch(e){ err.innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; btn.disabled = false; btn.textContent = id ? 'Save changes' : 'Save order'; }
+}
+
+/* order detail */
+function sheetOrder(t){
+  const o = orderById(t.id);
+  if (!o) return { title:'Order', body:`<div class="empty"><b>This order was deleted</b></div>` };
+  const total = orderTotal(o), paid = paidFor(o.id), exps = expensesFor(o.id), spent = exps.reduce((s,e)=> s + e.share, 0);
+  const ps = payState(o), w = S.canWrite !== false;
+  const facts = [
+    o.phone && ['Phone', `<span style="user-select:all">${esc(o.phone)}</span>`],
+    ['When', esc(whenText(o))],
+    o.fulfilment === 'delivery' && ['Deliver to', esc(o.address || 'Address not added')],
+    o.type === 'catering' && ['Guests', `${esc(o.guests||0)} × ${money(o.perGuest)}`],
+    num(o.deliveryFee) && ['Delivery fee', money(o.deliveryFee)],
+    num(o.otherAmount) && ['Other charges', money(o.otherAmount)],
+    o.createdBy && nameOf(o.createdBy) && ['Taken by', esc(nameOf(o.createdBy))]
+  ].filter(Boolean).map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  const statusChips = STATUSES.map(([k,l]) => `<button class="chip" data-act="set-status" data-id="${k}" aria-pressed="${o.status===k}" ${w?'':'disabled'}>${l}</button>`).join('');
+  const items = o.type === 'farsan' ? ((o.items||[]).length ? `<table class="it"><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Each</th><th class="n">Total</th></tr></thead><tbody>${o.items.map(i => `<tr><td>${esc(i.name)}</td><td class="n num">${esc(i.qty)} ${esc(i.unit)}</td><td class="n num">${money(i.price)}</td><td class="n num">${money(num(i.qty)*num(i.price))}</td></tr>`).join('')}</tbody></table>` : `<div class="empty">No items added</div>`)
+    : (o.menu ? `<div class="prewrap">${esc(o.menu)}</div>` : `<div class="empty">No menu added yet</div>`);
+  const pays = paymentsFor(o.id);
+  const del = S.confirm === 'order:' + o.id
+    ? `<div class="confirm">Delete order #${o.id}? Its payments and receipts stay recorded. <span class="btns" style="margin-left:auto"><button class="btn danger" data-act="del-order">Delete</button><button class="btn ghost" data-act="cancel-confirm">Keep</button></span></div>`
+    : `<button class="btn link" data-act="ask" data-id="order:${o.id}">Delete order</button>`;
+  return { title:`#${o.id} · ${o.type === 'farsan' ? 'Farsan/Sweet' : 'Catering'}`, body:`
+    <div class="d-head"><div style="min-width:0"><span class="tag ${o.type}">${o.type==='farsan'?'Farsan/Sweet order':'Catering order'}</span>
+      <div class="d-name">${esc(o.customer || 'No name')}</div>${o.occasion ? `<div class="sub">${esc(o.occasion)}</div>` : ''}</div>
+      <span class="pill p-${ps.k}" style="margin-top:4px">${ps.t}</span></div>
+    <dl class="facts">${facts}</dl>
+    <div class="money">
+      <div><small>Order total</small><b class="num">${money(total)}</b></div>
+      <div><small>Received</small><b class="num">${money(paid)}</b></div>
+      <div class="hl"><small>Balance due</small><b class="num">${money(Math.max(0,total-paid))}</b></div>
+      <div><small>Expenses</small><b class="num">${money(spent)}</b></div>
+      <div><small>Profit so far</small><b class="num">${money(total - spent)}</b></div>
+      <div><small>Margin</small><b class="num">${total > 0 ? Math.round((total-spent)/total*100) + '%' : '–'}</b></div>
+    </div>
+    ${w ? `<div class="btns"><button class="btn" data-act="new-payment" data-id="${esc(o.id)}">Record payment</button><button class="btn warn" data-act="new-expense" data-id="${esc(o.id)}">Add receipt</button></div>` : ''}
+    <h2 class="sec">Status</h2><div class="chips" style="margin:0">${statusChips}</div>
+    <h2 class="sec">${o.type === 'farsan' ? 'Items' : 'Menu'}</h2>${items}
+    ${o.notes ? `<h2 class="sec">Other details</h2><div class="prewrap">${esc(o.notes)}</div>` : ''}
+    <h2 class="sec">Payments received</h2>
+    ${pays.length ? `<div class="list">${pays.map(paymentRow).join('')}</div>` : `<div class="empty">No payments yet</div>`}
+    <h2 class="sec">Expenses &amp; receipts</h2>
+    ${exps.length ? `<div class="list">${exps.map(expenseRow).join('')}</div>${exps.some(e => (e.orderIds||[]).length > 1) ? `<p class="hint">Receipts shared with other orders are split evenly between them.</p>` : ''}` : `<div class="empty">No receipts linked yet</div>`}
+    ${w ? `<div class="btns" style="margin-top:22px"><button class="btn ghost" data-act="edit-order" data-id="${esc(o.id)}">Edit order</button></div><div style="margin-top:10px">${del}</div>` : ''}` };
+}
+
+/* expense form */
+function orderPicker(selected){
+  const t = todayISO();
+  const list = S.orders.filter(o => o.status !== 'cancelled' || selected.includes(o.id))
+    .sort((a,b) => Math.abs(dayDiff(a.date||t)) - Math.abs(dayDiff(b.date||t)));
+  if (!list.length) return `<div class="empty">No orders yet. You can still save this as a general expense.</div>`;
+  return `<input class="search" id="pick-search" type="search" placeholder="Find an order" aria-label="Find an order" style="margin-bottom:8px">
+    <div class="picker" id="picker">${list.map(o => `<label data-s="${esc([o.id,o.customer,o.occasion].join(' ').toLowerCase())}"><input type="checkbox" name="orderIds" value="${esc(o.id)}" ${selected.includes(o.id)?'checked':''}>
+      <span style="min-width:0"><b>#${esc(o.id)} ${esc(o.customer||'')}</b><br><span class="pm">${esc(fmtDate(o.date))} · ${o.type==='farsan'?'Farsan/Sweet':'Catering'}${o.occasion?' · '+esc(o.occasion):''}</span></span></label>`).join('')}</div>`;
+}
+function photoBlock(existing){
+  if (!S.assets) return `<div class="notice" style="margin:0 0 14px">Only Editors of this page can attach receipt photos. Ask the owner to change your access, or save without a photo.</div>`;
+  const u = S.upload;
+  let img = `<div class="ph"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>`;
+  let txt = `<b>Receipt photo</b><div class="hint">Take a photo or pick one from your phone. PDFs work too.</div>`;
+  if (u){ img = u.isPdf ? `<div class="ph">PDF</div>` : `<img src="${esc(u.preview)}" alt="Receipt preview">`; txt = `<b>${u.state === 'done' ? 'Receipt ready' : u.state === 'error' ? 'Upload failed' : 'Uploading…'}</b><div class="hint">${u.state === 'error' ? esc(u.msg) : esc(u.name)}</div>`; }
+  else if (existing){ img = existing.type === 'application/pdf' ? `<div class="ph">PDF</div>` : `<img src="${receiptUrl(existing.id)}" alt="Current receipt">`; txt = `<b>Receipt attached</b><div class="hint">Choose another to replace it.</div>`; }
+  return `<div class="photo-drop" id="photo-drop">${img}<div style="flex:1;min-width:0">${txt}
+    <div class="btns" style="margin-top:8px"><span class="filebtn btn ghost" style="flex:none">${u || existing ? 'Change' : 'Add photo'}<input id="receipt-file" type="file" accept="image/*,application/pdf"></span>
+    ${u || existing ? `<button type="button" class="btn link" data-act="rm-photo" style="flex:none">Remove</button>` : ''}</div></div></div>`;
+}
+function sheetExpenseForm(t){
+  const e = t.id ? (S.expenses.find(x => x.id === t.id) || {}) : { date: todayISO(), category: 'Groceries', orderIds: t.orderId ? [t.orderId] : [] };
+  if (t.keepReceipt === undefined) t.keepReceipt = e.receiptId ? { id:e.receiptId, type:e.receiptType, link:e.receiptLink } : null;
+  const body = `<form id="expense-form" data-id="${esc(t.id||'')}" novalidate>
+    <div id="form-err"></div>
+    <div id="photo-slot">${photoBlock(t.keepReceipt)}</div>
+    <div class="grid2"><div class="field"><label for="e-amount">Amount ($)</label><input id="e-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0" required value="${esc(e.amount)}"></div>
+      <div class="field"><label for="e-date">Date</label><input id="e-date" name="date" type="date" value="${esc(e.date)}"></div></div>
+    <div class="grid2"><div class="field"><label for="e-vendor">Shop / paid to</label><input id="e-vendor" name="vendor" placeholder="e.g. Indian grocer, Costco" value="${esc(e.vendor)}"></div>
+      <div class="field"><label for="e-category">Category</label><select id="e-category" name="category">${CATS.map(c => `<option ${c===e.category?'selected':''}>${c}</option>`).join('')}</select></div></div>
+    <div class="field"><span class="lbl">Which order(s) is this for?</span><div class="hint" style="margin-bottom:4px">Tick more than one if the shopping covered several orders. Leave all unticked for general kitchen costs.</div>${orderPicker(e.orderIds||[])}</div>
+    <div class="field"><label for="e-note">Note</label><input id="e-note" name="note" value="${esc(e.note)}" placeholder="Optional"></div>
+    <div class="btns"><button class="btn" type="submit" id="save-btn">${t.id ? 'Save changes' : 'Save expense'}</button></div>
+  </form>`;
+  return { title: t.id ? 'Edit expense' : 'Add expense', body, mount: h => {
+    h.querySelector('#pick-search')?.addEventListener('input', ev => { const q = ev.target.value.trim().toLowerCase(); h.querySelectorAll('#picker label').forEach(l => l.hidden = q && !l.dataset.s.includes(q)); });
+    bindFile(h);
+  }};
+}
+function bindFile(h){
+  const inp = h.querySelector('#receipt-file'); if (!inp) return;
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) startUpload(f); });
+}
+function refreshPhoto(){ const slot = $('#photo-slot'); const t = top(); if (!slot || !t) return; slot.innerHTML = photoBlock(t.keepReceipt); bindFile(slot); }
+async function compressImage(file){
+  const bmp = await createImageBitmap(file, {imageOrientation:'from-image'});
+  const max = 1800, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width*sc); c.height = Math.round(bmp.height*sc);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', 0.82));
+}
+function startUpload(file){
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const u = { name:file.name, isPdf, preview: isPdf ? '' : URL.createObjectURL(file), state:'uploading', msg:'' };
+  S.upload = u; refreshPhoto();
+  u.promise = (async () => {
+    let blob = file, type = isPdf ? 'application/pdf' : file.type;
+    if (!isPdf){ try { blob = await compressImage(file); type = 'image/jpeg'; } catch(e){ blob = file; } }
+    if (!['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(type)){ const x = new Error('type'); x.status = 415; x.body = { error:'Use a photo (JPG, PNG) or a PDF.' }; throw x; }
+    if (blob.size > 4.3 * 1024 * 1024){ const x = new Error('big'); x.status = 413; x.body = { error:'That file is too big. Keep receipts under 4 MB.' }; throw x; }
+    return await uploadReceipt(blob, type);
+  })();
+  u.promise.then(r => { if (S.upload === u){ u.state = 'done'; u.result = r; refreshPhoto(); } })
+    .catch(e => { if (S.upload === u){ u.state = 'error'; u.msg = errMsg(e); refreshPhoto(); } });
+}
+async function saveExpense(f, btn){
+  const fd = new FormData(f), id = f.dataset.id, err = $('#form-err'), t = top();
+  const amount = num(fd.get('amount'));
+  if (!(amount > 0)){ err.innerHTML = `<div class="err">Enter the amount from the receipt.</div>`; err.scrollIntoView({block:'nearest'}); return; }
+  btn.disabled = true;
+  try {
+    let receipt = t.keepReceipt;
+    if (S.upload){
+      btn.textContent = 'Uploading receipt…';
+      const r = await S.upload.promise; receipt = { id:r.id, type:r.contentType, link:r.link };
+    }
+    btn.textContent = 'Saving…';
+    const data = { amount, date:(fd.get('date')||'').toString(), vendor:(fd.get('vendor')||'').toString().trim(), category:(fd.get('category')||'Other').toString(),
+      note:(fd.get('note')||'').toString().trim(), orderIds: fd.getAll('orderIds').map(String), receiptId: receipt ? receipt.id : '', receiptType: receipt ? receipt.type : '', receiptLink: receipt ? (receipt.link || '') : '' };
+    if (id){
+      const prev = strip(S.expenses.find(x => x.id === id) || {});
+      await db.save('expenses', id, { ...prev, ...data });
+      if (prev.receiptId && prev.receiptId !== data.receiptId) trashReceipt(prev.receiptId);
+    } else {
+      await db.save('expenses', null, data);
+    }
+    toast(id ? 'Expense updated' : 'Expense saved');
+    closeSheet();
+  } catch(e){ err.innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; btn.disabled = false; btn.textContent = id ? 'Save changes' : 'Save expense'; }
+}
+function sheetExpense(t){
+  const e = S.expenses.find(x => x.id === t.id);
+  if (!e) return { title:'Expense', body:`<div class="empty"><b>This expense was deleted</b></div>` };
+  const ords = (e.orderIds||[]).map(orderById).filter(Boolean);
+  const rec = e.receiptId ? (e.receiptType === 'application/pdf'
+      ? `<a class="btn ghost" href="${receiptUrl(e.receiptId)}" target="_blank" rel="noopener" style="display:inline-block;margin-bottom:14px;text-decoration:none">Open receipt PDF</a>`
+      : `<a href="${receiptUrl(e.receiptId)}" target="_blank" rel="noopener"><img class="receipt-full" src="${receiptUrl(e.receiptId)}" alt="Receipt photo"></a>`)
+    : `<div class="empty" style="margin-bottom:14px">No receipt photo attached</div>`;
+  const driveLink = e.receiptLink ? `<p class="hint" style="margin:-6px 0 14px"><a href="${esc(e.receiptLink)}" target="_blank" rel="noopener">Open in Google Drive</a></p>` : '';
+  const w = S.canWrite !== false;
+  const del = S.confirm === 'exp:' + e.id
+    ? `<div class="confirm">Delete this expense and its receipt photo? <span class="btns" style="margin-left:auto"><button class="btn danger" data-act="del-expense">Delete</button><button class="btn ghost" data-act="cancel-confirm">Keep</button></span></div>`
+    : `<button class="btn link" data-act="ask" data-id="exp:${e.id}">Delete expense</button>`;
+  return { title: e.vendor || 'Expense', body:`${rec}${driveLink}
+    <div class="totalbar"><span>${esc(e.category||'Other')} · ${esc(fmtDate(e.date))}</span><b class="num">${money(e.amount)}</b></div>
+    <dl class="facts">${e.vendor ? `<dt>Paid to</dt><dd>${esc(e.vendor)}</dd>` : ''}${e.note ? `<dt>Note</dt><dd>${esc(e.note)}</dd>` : ''}${nameOf(e.createdBy) ? `<dt>Added by</dt><dd>${esc(nameOf(e.createdBy))}</dd>` : ''}</dl>
+    <h2 class="sec">For order${ords.length>1?'s':''}</h2>
+    ${ords.length ? ords.map(o => `<button class="linkchip" data-act="open-order" data-id="${esc(o.id)}">${esc(orderLabel(o))}</button>`).join('') + (ords.length > 1 ? `<p class="hint">${money(num(e.amount)/ords.length)} counted against each order.</p>` : '') : `<p class="hint">General expense, not linked to an order.</p>`}
+    ${w ? `<div class="btns" style="margin-top:20px"><button class="btn ghost" data-act="edit-expense" data-id="${esc(e.id)}">Edit</button></div><div style="margin-top:10px">${del}</div>` : ''}` };
+}
+
+/* payment form */
+function sheetPaymentForm(t){
+  const p = t.id ? (S.payments.find(x => x.id === t.id) || {}) : { date: todayISO(), method:'Cash', orderId: t.orderId || '' };
+  const tday = todayISO();
+  const opts = S.orders.filter(o => o.status !== 'cancelled' || o.id === p.orderId)
+    .sort((a,b) => (balance(b) > 0.005) - (balance(a) > 0.005) || Math.abs(dayDiff(a.date||tday)) - Math.abs(dayDiff(b.date||tday)))
+    .map(o => `<option value="${esc(o.id)}" ${o.id === p.orderId ? 'selected' : ''}>${esc(orderLabel(o))} · ${esc(fmtDate(o.date,{day:'numeric',month:'short'}))}${balance(o) > 0.005 ? ' · owes ' + money(balance(o)) : ' · paid'}</option>`).join('');
+  const pre = p.amount != null ? p.amount : (p.orderId && orderById(p.orderId) ? Math.round(balance(orderById(p.orderId))*100)/100 || '' : '');
+  const w = S.canWrite !== false;
+  const del = t.id ? (S.confirm === 'pay:' + t.id
+    ? `<div class="confirm" style="margin-top:12px">Delete this payment? <span class="btns" style="margin-left:auto"><button type="button" class="btn danger" data-act="del-payment">Delete</button><button type="button" class="btn ghost" data-act="cancel-confirm">Keep</button></span></div>`
+    : `<button type="button" class="btn link" data-act="ask" data-id="pay:${esc(t.id)}" style="margin-top:8px">Delete payment</button>`) : '';
+  const body = `<form id="payment-form" data-id="${esc(t.id||'')}" novalidate>
+    <div id="form-err"></div>
+    <div class="field"><label for="p-order">Order</label><select id="p-order" name="orderId"><option value="">Choose an order…</option>${opts}</select></div>
+    <div class="grid2"><div class="field"><label for="p-amount">Amount received ($)</label><input id="p-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(pre)}"></div>
+      <div class="field"><label for="p-date">Date</label><input id="p-date" name="date" type="date" value="${esc(p.date)}"></div></div>
+    <div class="field"><span class="lbl">Method</span><div class="seg">${METHODS.map(m => `<label><input type="radio" name="method" value="${m}" ${m===(p.method||'Cash')?'checked':''}><span>${m}</span></label>`).join('')}</div></div>
+    <div class="field"><label for="p-note">Note</label><input id="p-note" name="note" value="${esc(p.note)}" placeholder="e.g. deposit, final payment"></div>
+    ${w ? `<div class="btns"><button class="btn" type="submit" id="save-btn">${t.id ? 'Save changes' : 'Record payment'}</button></div>${del}` : ''}
+  </form>`;
+  return { title: t.id ? 'Payment' : 'Record payment', body, mount: h => {
+    const sel = h.querySelector('#p-order'), amt = h.querySelector('#p-amount');
+    sel.addEventListener('change', () => { if (!t.id){ const o = orderById(sel.value); if (o){ const b = Math.round(balance(o)*100)/100; amt.value = b > 0 ? b : ''; } } });
+  }};
+}
+async function savePayment(f, btn){
+  const fd = new FormData(f), id = f.dataset.id, err = $('#form-err');
+  const data = { orderId:(fd.get('orderId')||'').toString(), amount:num(fd.get('amount')), date:(fd.get('date')||'').toString(), method:(fd.get('method')||'Cash').toString(), note:(fd.get('note')||'').toString().trim() };
+  if (!data.orderId || !(data.amount > 0)){ err.innerHTML = `<div class="err">Choose the order and enter the amount received.</div>`; return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    if (id) await db.save('payments', id, { ...strip(S.payments.find(x => x.id === id) || {}), ...data });
+    else await db.save('payments', null, data);
+    toast(`${money(data.amount)} ${data.method.toLowerCase()} recorded for #${data.orderId}`);
+    closeSheet();
+  } catch(e){ err.innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; btn.disabled = false; btn.textContent = id ? 'Save changes' : 'Record payment'; }
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async ev => {
+  const el = ev.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  if (act === 'scrim'){ if (ev.target === el) closeAll(); return; }
+  switch (act){
+    case 'tab': S.tab = id; window.scrollTo(0,0); renderMain(); break;
+    case 'filter-owing': S.tab = 'orders'; S.ofilter = 'owing'; renderMain(); break;
+    case 'ofilter': S.ofilter = id; renderMain(); break;
+    case 'otype': S.otype = id; renderMain(); break;
+    case 'new-menu': openSheet({kind:'menu'}); break;
+    case 'new-order': S.stack = []; openSheet({kind:'order-form', type:id, date:el.dataset.date||''}); break;
+    case 'dperiod': S.dperiod = id; renderMain(); break;
+    case 'cal-sel': S.cal.sel = id; { const d = toD(id); if (d.getMonth() !== S.cal.m){ S.cal.y = d.getFullYear(); S.cal.m = d.getMonth(); } } renderMain(); break;
+    case 'cal-move': { const d = new Date(S.cal.y, S.cal.m + Number(id), 1); S.cal.y = d.getFullYear(); S.cal.m = d.getMonth(); S.cal.sel = null; renderMain(); break; }
+    case 'cal-today': { const d = new Date(); S.cal = {y:d.getFullYear(), m:d.getMonth(), sel:todayISO()}; renderMain(); break; }
+    case 'new-expense': if (top() && top().kind === 'menu') S.stack.pop(); S.upload = null; openSheet({kind:'expense-form', orderId:id||''}); break;
+    case 'new-payment': if (top() && top().kind === 'menu') S.stack.pop(); openSheet({kind:'payment-form', orderId:id||''}); break;
+    case 'open-order': openSheet({kind:'order', id}); break;
+    case 'open-expense': openSheet({kind:'expense', id}); break;
+    case 'edit-order': openSheet({kind:'order-form', id}); break;
+    case 'edit-expense': S.upload = null; openSheet({kind:'expense-form', id}); break;
+    case 'edit-payment': openSheet({kind:'payment-form', id}); break;
+    case 'close': closeAll(); break;
+    case 'retry': S.status = 'loading'; renderMain(); refresh(); break;
+    case 'signout': try { await api('/api/auth/logout', { method:'POST' }); } catch(e){} location.reload(); break;
+    case 'back': closeSheet(); break;
+    case 'add-item': { const box = $('#items'); box.insertAdjacentHTML('beforeend', itemRow()); box.lastElementChild.querySelector('.i-name').focus(); break; }
+    case 'rm-item': { const r = el.closest('.item-row'); const box = r.parentElement; r.remove(); if (!box.children.length) box.insertAdjacentHTML('beforeend', itemRow()); $('#order-form').dispatchEvent(new Event('input')); break; }
+    case 'rm-photo': { const t = top(); S.upload = null; t.keepReceipt = null; refreshPhoto(); break; }
+    case 'ask': S.confirm = id; renderSheet(); break;
+    case 'cancel-confirm': S.confirm = null; renderSheet(); break;
+    case 'set-status': { const o = orderById(top().id); if (!o || o.status === id) break;
+      try { await db.save('orders', o.id, { ...strip(o), status:id }); toast(`Marked ${STATUSES.find(s=>s[0]===id)[1].toLowerCase()}`); } catch(e){ toast(errMsg(e)); } break; }
+    case 'del-order': { const oid = top().id; try { await db.remove('orders', oid); toast(`Order #${oid} deleted`); closeSheet(); } catch(e){ toast(errMsg(e)); } break; }
+    case 'del-expense': { const eid = top().id; const e = S.expenses.find(x => x.id === eid);
+      try { await db.remove('expenses', eid); if (e && e.receiptId) trashReceipt(e.receiptId); toast('Expense deleted'); closeSheet(); } catch(x){ toast(errMsg(x)); } break; }
+    case 'del-payment': { const pid = top().id; try { await db.remove('payments', pid); toast('Payment deleted'); closeSheet(); } catch(e){ toast(errMsg(e)); } break; }
+  }
+});
+document.addEventListener('submit', ev => {
+  ev.preventDefault();
+  const f = ev.target, btn = f.querySelector('#save-btn'); if (!btn || btn.disabled) return;
+  if (f.id === 'order-form') saveOrder(f, btn);
+  else if (f.id === 'expense-form') saveExpense(f, btn);
+  else if (f.id === 'payment-form') savePayment(f, btn);
+});
+document.addEventListener('input', ev => { if (ev.target.id === 'order-search'){ S.q = ev.target.value; const pos = ev.target.selectionStart; renderMain(); const s = $('#order-search'); s.focus(); try { s.setSelectionRange(pos,pos); } catch(e){} } });
+function showTip(h){
+  document.querySelectorAll('.ctip').forEach(x => x.hidden = true);
+  if (!h) return;
+  const wrap = h.closest('.chart-wrap'), tip = wrap.querySelector('.ctip');
+  tip.innerHTML = h.dataset.tip; tip.hidden = false;
+  const r = h.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  const x = r.left - wr.left + wrap.scrollLeft + r.width/2;
+  tip.style.left = Math.max(4, Math.min(x - tip.offsetWidth/2, wrap.scrollWidth - tip.offsetWidth - 4)) + 'px';
+  tip.style.top = '6px';
+}
+document.addEventListener('pointerover', ev => { if (ev.target.closest && (ev.target.closest('.hitcol') || ev.target.closest('.chart-wrap'))) showTip(ev.target.closest('.hitcol')); });
+document.addEventListener('pointerdown', ev => { const h = ev.target.closest && ev.target.closest('.hitcol'); if (h) showTip(h); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && S.stack.length) closeSheet(); });
+
+/* ---------- boot ---------- */
+$('#farsan-list').innerHTML = FARSAN.map(f => `<option value="${f}">`).join('');
+renderMain();
+let refreshing = null;
+async function refresh(){
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    try {
+      const d = await api('/api/data');
+      S.orders = d.orders || []; S.expenses = d.expenses || []; S.payments = d.payments || [];
+      S.loaded = { orders:true, expenses:true, payments:true };
+      S.me = d.me; S.links = d.links || {}; S.status = 'ready';
+      $('#who').innerHTML = `${esc((d.me && d.me.name) || '')} <button class="btn link" data-act="signout" style="padding:4px 6px">Sign out</button>`;
+    } catch(e){
+      if (e.status === 401){ S.status = 'signin'; await showSignin(); return; }
+      if (e.status === 503 && e.body.setup){ S.status = 'setup'; S.isOwner = !!e.body.isOwner; }
+      else if (e.status === 500 && e.body.config){ S.status = 'config'; S.missing = e.body.config; }
+      else if (S.status !== 'ready'){ S.status = 'error'; S.errorMsg = errMsg(e); }
+    }
+    renderMain(); if (isDetail()) renderSheet();
+  })();
+  try { await refreshing; } finally { refreshing = null; }
+}
+let gsiLoaded = null;
+function loadGsi(){
+  if (!gsiLoaded) gsiLoaded = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+  return gsiLoaded;
+}
+async function showSignin(){
+  renderMain();
+  try {
+    if (!S.clientId){ const c = await api('/api/config'); S.clientId = c.clientId; if (c.missing && c.missing.length){ S.status = 'config'; S.missing = c.missing; renderMain(); return; } }
+    await loadGsi();
+    google.accounts.id.initialize({ client_id: S.clientId, callback: onCredential, auto_select: true });
+    google.accounts.id.renderButton($('#gbtn'), { theme:'outline', size:'large', shape:'pill', text:'signin_with' });
+    google.accounts.id.prompt();
+  } catch(e){ S.signinMsg = 'Couldn’t load Google sign-in. Check your connection and reload.'; renderMain(); }
+}
+async function onCredential(resp){
+  try {
+    await api('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ credential: resp.credential }) });
+    S.signinMsg = ''; S.status = 'loading'; renderMain(); refresh();
+  } catch(e){
+    S.signinMsg = e.body && e.body.error === 'not_allowed' ? `${e.body.email} isn’t on the team list. Ask the owner to add this email.` : errMsg(e);
+    renderMain(); showSignin();
+  }
+}
+const isForm = () => { const t = top(); return t && /form$/.test(t.kind); };
+setInterval(() => { if (document.visibilityState === 'visible' && S.status === 'ready' && !isForm()) refresh(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.status === 'ready' && !isForm()) refresh(); });
+refresh();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,58 @@
+# Satvik Orders
+
+The order book for Satvik Catering: catering and farsan/sweet orders, a calendar, a dashboard, receipt photos and payments. Built for phones.
+
+- **Hosting:** Vercel (static page in `public/`, server functions in `api/`).
+- **Sign-in:** Google accounts. Only the emails you list in `ALLOWED_EMAILS` (plus `OWNER_EMAIL`) can get in.
+- **Data:** a Google Sheet called **Satvik Orders** in the owner's Google Drive, with tabs for Orders, Expenses and Payments. You can open and read it like any other sheet.
+- **Receipts:** photos and PDFs go into a Google Drive folder called **Satvik Receipts** in the owner's Drive, named like `2026-10-10 Patel Brothers $84.20 (#1001).jpg`.
+- The app only asks Google for the `drive.file` permission, so it can see the sheet and folder it created and nothing else in your Drive.
+
+## One-time setup (about 20 minutes)
+
+### 1. Google Cloud (sign-in + Drive access)
+
+1. Go to <https://console.cloud.google.com/>, signed in as the owner, and create a project called **Satvik Orders**.
+2. **APIs & Services → Library**: enable **Google Drive API** and **Google Sheets API**.
+3. **APIs & Services → OAuth consent screen** (Google Auth Platform):
+   - User type **External**, app name **Satvik Orders**, your email as support and developer contact.
+   - Data access / scopes: add `.../auth/drive.file` (plus the default `openid`, `email`, `profile`).
+   - Audience: click **Publish app** so it's **In production**. (In "Testing" mode Google expires the Drive connection every 7 days.) No verification is needed for these scopes.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+   - Type **Web application**, name **Satvik Orders web**.
+   - **Authorised JavaScript origins:** your Vercel address, e.g. `https://satvik-orders.vercel.app` (add your custom domain too if you use one, e.g. `https://orders.satvikcatering.com.au`).
+   - **Authorised redirect URIs:** the same address + `/api/setup/callback`, e.g. `https://satvik-orders.vercel.app/api/setup/callback`.
+   - Copy the **Client ID** and **Client secret**.
+
+### 2. Vercel
+
+1. In Vercel: **Add New → Project → Import** this GitHub repo. Framework preset **Other**, no build command. Deploy.
+2. **Settings → Environment Variables**, add:
+
+| Name | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID` | the OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | the OAuth client secret |
+| `OWNER_EMAIL` | the owner's Google email (whose Drive holds the data) |
+| `ALLOWED_EMAILS` | everyone else who should get in, separated by commas |
+| `SESSION_SECRET` | any long random text (the app shows you one to use if it's missing) |
+
+3. **Deployments → ⋯ → Redeploy** so the variables take effect.
+
+### 3. Connect Google Drive (owner, once)
+
+1. Open the app and sign in as the owner. It shows **Connect Google Drive**.
+2. Allow access. The app creates the **Satvik Orders** sheet and **Satvik Receipts** folder and shows a key.
+3. Add that key in Vercel as `GOOGLE_REFRESH_TOKEN`, then redeploy once more.
+
+Done. Share the link with the team. To let family see the receipts folder or sheet directly in Drive, share them from Google Drive as usual.
+
+## Adding or removing people
+
+Edit `ALLOWED_EMAILS` in Vercel and redeploy. Removed people are signed out on their next visit.
+
+## Limits
+
+- Receipt files up to about 4 MB (photos are shrunk on the phone before upload, so this rarely matters).
+- The app refreshes every 30 seconds and whenever you come back to it, so other people's changes show up within half a minute.
+- Deleting a receipt moves the file to the Drive bin, where it can be restored for 30 days.
