@@ -1,9 +1,8 @@
 // POST   /api/receipt   (raw image/PDF body)  -> { id, contentType, link }   uploads into the "Satvik Receipts" Drive folder
 // GET    /api/receipt?id=...                   -> the file, for showing in the app
 // DELETE /api/receipt?id=...                   -> moves the file to Drive's bin (recoverable for 30 days)
-import { Readable } from 'node:stream';
 import { requireUser, json } from '../lib/auth.js';
-import { store } from '../lib/store.js';
+import { store, saveReceiptFile } from '../lib/store.js';
 
 const TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
 const MAX = 4.3 * 1024 * 1024; // Vercel's request limit is 4.5 MB
@@ -36,13 +35,8 @@ export default async function handler(req, res) {
       const chunks = []; let size = 0;
       for await (const c of req) { size += c.length; if (size > MAX) return json(res, 413, { error: 'That file is too big. Keep receipts under 4 MB.' }); chunks.push(c); }
       if (!size) return json(res, 400, { error: 'Empty file' });
-      const ext = type === 'application/pdf' ? 'pdf' : type.split('/')[1].replace('jpeg', 'jpg');
-      const r = await s.drive.files.create({
-        requestBody: { name: `receipt-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`, parents: [s.folderId], appProperties: { satvik: 'receipt' }, description: `Uploaded by ${user.name}` },
-        media: { mimeType: type, body: Readable.from(Buffer.concat(chunks)) },
-        fields: 'id,mimeType,webViewLink',
-      });
-      return json(res, 200, { id: r.data.id, contentType: r.data.mimeType, link: r.data.webViewLink });
+      const r = await saveReceiptFile(s, Buffer.concat(chunks), type, user.name);
+      return json(res, 200, r);
     }
     return json(res, 405, { error: 'Method not allowed' });
   } catch (e) {

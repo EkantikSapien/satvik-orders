@@ -3,9 +3,12 @@
 // POST — incoming messages: a team member texts an order or payment in plain words, the app
 //        reads it with Claude, saves it to the sheet and replies with what it recorded.
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { store, readAll, upsert, nextOrderId, clean, orderTotal } from '../lib/store.js';
+import { randomUUID } from 'node:crypto';
+import { store, readAll, upsert, nextOrderId, clean, orderTotal, saveReceiptFile, nameReceiptFile } from '../lib/store.js';
+import { receiptText } from '../lib/ocr.js';
+import { readReceipt } from '../public/receipt-read.js';
 import { extract } from '../lib/extract.js';
-import { parseMessage, TEMPLATES } from '../lib/parse.js';
+import { parseMessage, parseExpenseText, TEMPLATES } from '../lib/parse.js';
 import { PREP, prepTotals } from '../lib/prep.js';
 
 const APP_URL = () => process.env.APP_URL || 'https://satvik-orders.vercel.app';
@@ -59,6 +62,7 @@ const HELP = '*Adding orders*\nForward or paste the order as you\'d write it, e.
   + 'Fix a detail: *#1023 name Kunalbhai*, *#1023 date 24/10*, *#1023 guests 50*\n\n'
   + '*What\'s on*\nSend *today*, *tomorrow*, *Sunday* or *24/10*\n\n'
   + '*Equipment*\nSend *equipment* to see what\'s out, *returned #1004* when it\'s back\n\n'
+  + '*Expenses*\nSend a photo of the receipt (add *#1004* in the caption if you know the order). Or type *spent $84.20 Woolworths #1004*. Fix the last one with *receipt $84.20* or *receipt #1004 #1005*\n\n'
   + '*Payments*\n'
   + '*owing* to pick from orders still to pay\n*Paid $500 cash #1004* for a part payment\n*paid in full before today* for many at once';
 
@@ -117,6 +121,83 @@ async function sendOwingList(to, data, offset = 0) {
   });
 }
 
+const CATS = ['Groceries', 'Vegetables', 'Dairy', 'Spices & dry goods', 'Packaging', 'Gas & fuel', 'Staff', 'Hire & equipment', 'Other'];
+const expenseLine = (e, data) => {
+  const ords = (e.orderIds || []).map((id) => data.orders.find((o) => o.id === id)).filter(Boolean);
+  return [
+    `🧾 *${e.amount ? money(e.amount) : 'Amount not read'}*${e.vendor ? ' · ' + e.vendor : ''} · ${niceDate(e.date)}`,
+    `Category: ${e.category}`,
+    `For: ${ords.length ? ords.map((o) => `#${o.id} ${o.customer}`).join(', ') : 'not linked to an order yet'}`,
+  ].join('\n');
+};
+
+/** List of nearby orders to link a receipt to (WhatsApp lists hold 10 rows). */
+function sendLinkList(to, e, data, today) {
+  const t = new Date(today + 'T00:00');
+  const near = data.orders.filter((o) => o.status !== 'cancelled' && o.date)
+    .map((o) => ({ o, d: Math.abs((new Date(o.date + 'T00:00') - t) / 86400000) }))
+    .filter((x) => x.d <= 14).sort((a, b) => a.d - b.d).slice(0, 9).map((x) => x.o)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const rows = near.map((o) => ({ id: `exp:${e.id}:${o.id}`, title: cut(`#${o.id} ${o.customer || ''}`.trim(), 24), description: cut(`${niceDate(o.date)} · ${o.type === 'farsan' ? 'Farsan/Sweet' : (o.guests || '?') + ' guests'}`, 72) }));
+  rows.push({ id: `exp:${e.id}:none`, title: 'Not for an order', description: 'General kitchen cost' });
+  return send(to, {
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: 'Which order is this for? Tap below.\nFor several orders, reply e.g. *receipt #1004 #1005*' },
+      action: { button: 'Choose order', sections: [{ title: 'Orders near this date', rows }] },
+    },
+  });
+}
+
+async function newExpense(s, data, who, msgId, fields) {
+  const rec = clean('expenses', {
+    date: fields.date || todayBrisbane(), amount: fields.amount || 0, vendor: fields.vendor || '',
+    category: CATS.includes(fields.category) ? fields.category : 'Other', orderIds: fields.orderIds || [],
+    note: ['via WhatsApp', fields.note].filter(Boolean).join(' · '),
+    receiptId: fields.receiptId || '', receiptType: fields.receiptType || '', receiptLink: fields.receiptLink || '',
+  });
+  rec.id = 'e-' + randomUUID().slice(0, 8);
+  rec.createdAt = new Date().toISOString();
+  rec.createdBy = `${who} (WhatsApp)`;
+  rec.source = msgId;
+  await upsert(s, 'expenses', rec);
+  nameReceiptFile(s, rec);
+  data.expenses.push(rec);
+  return rec;
+}
+
+/** A photo or PDF of a receipt: save it to Drive, read the total, add an expense, ask which order. */
+async function handleMedia(from, who, m) {
+  const media = m.image || m.document || {};
+  const type = String(media.mime_type || '').split(';')[0];
+  if (!/^image\/(jpeg|png|webp)$|^application\/pdf$/.test(type)) return reply(from, 'Send receipts as a photo or a PDF.');
+  const s = await store();
+  const data = await readAll(s);
+  if (data.expenses.some((e) => e.source === m.id)) return;
+  const auth = { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` };
+  const meta = await (await fetch(`${GRAPH()}/${media.id}`, { headers: auth })).json();
+  if (!meta.url) throw new Error('No media URL: ' + JSON.stringify(meta).slice(0, 200));
+  const buf = Buffer.from(await (await fetch(meta.url, { headers: auth })).arrayBuffer());
+  const today = todayBrisbane();
+  const [file, text] = await Promise.all([
+    saveReceiptFile(s, buf, type === 'image/webp' ? 'image/webp' : type, `${who} (WhatsApp)`),
+    type.startsWith('image/') ? receiptText(buf) : Promise.resolve(''),
+  ]);
+  const scanned = readReceipt(text, today);
+  const cap = parseExpenseText(media.caption || '');
+  const e = await newExpense(s, data, who, m.id, {
+    date: scanned.date || today, amount: cap.amount || scanned.amount, vendor: cap.vendor || scanned.vendor,
+    category: (cap.vendor && readReceipt(cap.vendor, today).category) || scanned.category, orderIds: cap.orderIds.filter((id) => data.orders.some((o) => o.id === id)),
+    receiptId: file.id, receiptType: file.contentType, receiptLink: file.link,
+  });
+  const lines = ['Receipt saved:', expenseLine(e, data)];
+  if (!e.amount) lines.push('', `I couldn't read the total. Reply e.g. *receipt $84.20*`);
+  else if (!cap.amount) lines.push('', `Wrong amount? Reply e.g. *receipt $84.20*`);
+  await reply(from, lines.join('\n'));
+  if (!e.orderIds.length) return sendLinkList(from, e, data, today);
+}
+
 /** Taps on the list ("pay:1004", "owing:9") and on the payment buttons ("paid:1004:Cash"). */
 async function handleTap(from, who, tapId, msgId) {
   const s = await store();
@@ -124,6 +205,16 @@ async function handleTap(from, who, tapId, msgId) {
   if (data.payments.some((p) => p.source === msgId)) return;
   const [what, id, method] = tapId.split(':');
   if (what === 'owing') return sendOwingList(from, data, Number(id) || 0);
+  if (what === 'exp') {
+    const e = data.expenses.find((x) => x.id === id);
+    if (!e) return reply(from, 'I can\'t find that receipt any more.');
+    const orderIds = method === 'none' ? [] : [method];
+    const upd = clean('expenses', { ...e, orderIds, updatedAt: new Date().toISOString(), updatedBy: `${who} (WhatsApp)` });
+    await upsert(s, 'expenses', upd);
+    nameReceiptFile(s, upd);
+    const o = data.orders.find((x) => x.id === method);
+    return reply(from, method === 'none' ? `🧾 ${money(e.amount)} kept as a general cost.` : `🧾 ${money(e.amount)} linked to #${o ? o.id + ' ' + o.customer : method}.\nFor more than one order, reply e.g. *receipt #${method} #1005*`);
+  }
   const o = data.orders.find((x) => x.id === id);
   if (!o) return reply(from, `I can't find order #${id}.`);
   const owing = Math.round((orderTotal(o) - paidFor(data, o.id)) * 100) / 100;
@@ -160,7 +251,7 @@ async function handleText(from, who, text, msgId) {
   const data = await readAll(s);
 
   // Meta can deliver the same message twice; skip anything already saved.
-  if (data.orders.some((o) => o.source === msgId) || data.payments.some((p) => p.source === msgId)) return;
+  if (data.orders.some((o) => o.source === msgId) || data.payments.some((p) => p.source === msgId) || data.expenses.some((e) => e.source === msgId)) return;
 
   if (/^\s*(help|hi|hello|hey|menu|\?)\s*$/i.test(text)) return reply(from, HELP);
   if (/^\s*(owing|owe|owed|pending|unpaid|due|payments?|pay|balance|balances)\s*\??\s*$/i.test(text)) return sendOwingList(from, data);
@@ -254,6 +345,28 @@ async function handleText(from, who, text, msgId) {
 
   if (res.kind === 'day') return reply(from, dayReport(data, res.date, today));
 
+  if (res.kind === 'expense') {
+    if (res.missing) return reply(from, res.missing);
+    const e = await newExpense(s, data, who, msgId, { amount: res.amount, vendor: res.vendor, category: readReceipt(res.vendor, today).category, orderIds: res.orderIds.filter((id) => data.orders.some((o) => o.id === id)) });
+    await reply(from, ['Expense added (no receipt photo):', expenseLine(e, data), '', 'Tip: send a photo of the receipt instead and I\'ll read the amount and keep the photo.'].join('\n'));
+    if (!e.orderIds.length) return sendLinkList(from, e, data, today);
+    return;
+  }
+
+  if (res.kind === 'receipt-edit') {
+    const mine = data.expenses.filter((e) => e.createdBy === `${who} (WhatsApp)`).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+    if (!mine) return reply(from, 'I can\'t find a receipt from you to change. Send a photo of the receipt first.');
+    const ch = {};
+    if (res.amount) ch.amount = res.amount;
+    if (res.orderIds.length) ch.orderIds = res.orderIds.filter((id) => data.orders.some((o) => o.id === id));
+    if (res.vendor && !/^\d/.test(res.vendor)) { ch.vendor = res.vendor; const c = readReceipt(res.vendor, today).category; if (c && (!mine.category || mine.category === 'Other')) ch.category = c; }
+    if (!Object.keys(ch).length) return reply(from, 'Send e.g. *receipt $84.20*, *receipt #1004 #1005* or *receipt Costco* to change your last receipt.');
+    const upd = clean('expenses', { ...mine, ...ch, updatedAt: new Date().toISOString(), updatedBy: `${who} (WhatsApp)` });
+    await upsert(s, 'expenses', upd);
+    nameReceiptFile(s, upd);
+    return reply(from, ['Updated your last receipt:', expenseLine(upd, data)].join('\n'));
+  }
+
   if (res.kind === 'payfull') {
     if (res.missing) return reply(from, res.missing);
     const targets = res.ids.length
@@ -326,6 +439,10 @@ export default async function handler(req, res) {
       if (m.type === 'interactive') {
         const tap = (m.interactive && (m.interactive.list_reply || m.interactive.button_reply)) || {};
         if (tap.id) jobs.push(handleTap(from, allowed[from], tap.id, m.id).catch(async (e) => { console.error(e); await reply(from, 'Something went wrong. Please try again in a minute, or use the app.'); }));
+        continue;
+      }
+      if (m.type === 'image' || m.type === 'document') {
+        jobs.push(handleMedia(from, allowed[from], m).catch(async (e) => { console.error(e); await reply(from, e.setup ? 'The app isn’t connected to Google Drive yet.' : 'Something went wrong saving that receipt. Please try again, or add it in the app.'); }));
         continue;
       }
       if (m.type !== 'text') { jobs.push(reply(from, 'For now I can only read text messages. Type the order out and send it again.')); continue; }

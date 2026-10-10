@@ -863,7 +863,9 @@ function photoBlock(existing){
   const u = S.upload;
   let img = `<div class="ph"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>`;
   let txt = `<b>Receipt photo</b><div class="hint">Take a photo or pick one from your phone. PDFs work too.</div>`;
-  if (u){ img = u.isPdf ? `<div class="ph">PDF</div>` : `<img src="${esc(u.preview)}" alt="Receipt preview">`; txt = `<b>${u.state === 'done' ? 'Receipt ready' : u.state === 'error' ? 'Upload failed' : 'Uploading…'}</b><div class="hint">${u.state === 'error' ? esc(u.msg) : esc(u.name)}</div>`; }
+  if (u){ img = u.isPdf ? `<div class="ph">PDF</div>` : `<img src="${esc(u.preview)}" alt="Receipt preview">`;
+    const scan = u.scan === 'reading' ? 'Reading the receipt…' : u.scan === 'done' ? `Read ${money(u.scanned.amount)}${u.scanned.vendor ? ' from ' + u.scanned.vendor : ''}. Check it’s right.` : u.scan === 'none' ? 'Couldn’t read the total, please type it in.' : '';
+    txt = `<b>${u.state === 'done' ? 'Receipt ready' : u.state === 'error' ? 'Upload failed' : 'Uploading…'}</b><div class="hint">${u.state === 'error' ? esc(u.msg) : esc(scan || u.name)}</div>`; }
   else if (existing){ img = existing.type === 'application/pdf' ? `<div class="ph">PDF</div>` : `<img src="${receiptUrl(existing.id)}" alt="Current receipt">`; txt = `<b>Receipt attached</b><div class="hint">Choose another to replace it.</div>`; }
   return `<div class="photo-drop" id="photo-drop">${img}<div style="flex:1;min-width:0">${txt}
     <div class="btns" style="margin-top:8px"><span class="filebtn btn ghost" style="flex:none">${u || existing ? 'Change' : 'Add photo'}<input id="receipt-file" type="file" accept="image/*,application/pdf"></span>
@@ -884,6 +886,7 @@ function sheetExpenseForm(t){
     <div class="btns"><button class="btn" type="submit" id="save-btn">${t.id ? 'Save changes' : 'Save expense'}</button></div>
   </form>`;
   return { title: t.id ? 'Edit expense' : 'Add expense', body, mount: h => {
+    h.querySelector('#expense-form').addEventListener('input', ev => { if (ev.target.name) ev.target.dataset.touched = '1'; });
     h.querySelector('#pick-search')?.addEventListener('input', ev => { const q = ev.target.value.trim().toLowerCase(); h.querySelectorAll('#picker label').forEach(l => l.hidden = q && !l.dataset.s.includes(q)); });
     bindFile(h);
   }};
@@ -909,10 +912,36 @@ function startUpload(file){
     if (!isPdf){ try { blob = await compressImage(file); type = 'image/jpeg'; } catch(e){ blob = file; } }
     if (!['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(type)){ const x = new Error('type'); x.status = 415; x.body = { error:'Use a photo (JPG, PNG) or a PDF.' }; throw x; }
     if (blob.size > 4.3 * 1024 * 1024){ const x = new Error('big'); x.status = 413; x.body = { error:'That file is too big. Keep receipts under 4 MB.' }; throw x; }
+    if (!isPdf) scanReceipt(u, blob);
     return await uploadReceipt(blob, type);
   })();
   u.promise.then(r => { if (S.upload === u){ u.state = 'done'; u.result = r; refreshPhoto(); } })
     .catch(e => { if (S.upload === u){ u.state = 'error'; u.msg = errMsg(e); refreshPhoto(); } });
+}
+/* Read the receipt on the phone (Tesseract, free) and fill in amount, date, shop and category. */
+let tessP = null, tessWorkerP = null;
+function loadTesseract(){
+  return tessP || (tessP = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; sc.onload = () => res(window.Tesseract); sc.onerror = () => { tessP = null; rej(new Error('Could not load the receipt reader')); }; document.head.appendChild(sc); }));
+}
+function tessWorker(){
+  return tessWorkerP || (tessWorkerP = loadTesseract().then(T => T.createWorker('eng')).then(async w => { await w.setParameters({ tessedit_pageseg_mode: '6' }); return w; }).catch(e => { tessWorkerP = null; throw e; }));
+}
+async function scanReceipt(u, blob){
+  u.scan = 'reading'; refreshPhoto();
+  try {
+    const [{ readReceipt }, w] = await Promise.all([import('/receipt-read.js'), tessWorker()]);
+    const { data } = await w.recognize(blob);
+    if (S.upload !== u) return;
+    const r = readReceipt(data.text || '', todayISO());
+    u.scanned = r; u.scan = r.amount ? 'done' : 'none';
+    const f = $('#expense-form');
+    if (f){
+      const set = (name, val) => { const el = f.elements[name]; if (el && val && !el.dataset.touched) el.value = val; };
+      set('amount', r.amount ? r.amount.toFixed(2) : ''); set('vendor', r.vendor); set('date', r.date);
+      if (r.category && CATS.includes(r.category)) set('category', r.category);
+    }
+  } catch(e){ console.warn('Receipt scan failed', e); if (S.upload === u) u.scan = 'none'; }
+  if (S.upload === u) refreshPhoto();
 }
 async function saveExpense(f, btn){
   const fd = new FormData(f), id = f.dataset.id, err = $('#form-err'), t = top();

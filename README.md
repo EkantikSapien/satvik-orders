@@ -56,6 +56,9 @@ Free to run. Only numbers in `WHATSAPP_ALLOWED_NUMBERS` are listened to. Send *h
 - **What's on:** `today`, `tomorrow`, `Sunday`, `24/10`: the orders and the kg of sev khamani / vatidar / nylon khaman to make.
 - **Equipment:** `equipment` lists what's out; `returned #1004` marks it back.
 - **Payments:** `owing` (tap-to-pick list), `Paid $500 cash #1004`, `paid in full before today`.
+- **Expenses:** send a photo (or PDF) of the receipt; the bot saves it to the receipts folder, reads the total, date and shop, and asks which order it's for. Caption `#1004` to link it straight away. Typed: `spent $84.20 Woolworths #1004`. Fix the last one: `receipt $84.20`, `receipt #1004 #1005`.
+
+Receipts are read with Tesseract (free): in the app it runs on the phone, in the bot inside the server function (`lib/ocr.js`). Always check the amount it reads.
 
 1. *(Optional, paid)* To accept free-form messages instead of the form, add an Anthropic API key as `ANTHROPIC_API_KEY`. Without it the free form reader is used.
 2. **Meta WhatsApp Cloud API** at <https://developers.facebook.com/apps>: create an app (use case "Connect with customers through WhatsApp"), open **WhatsApp → API Setup**. Note the **Phone number ID**, add each team member's mobile under **To** and confirm the code WhatsApp sends them.

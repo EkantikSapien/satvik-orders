@@ -2,7 +2,7 @@
 // POST /api/data {op:'save', collection, id?, data}  -> { id }
 // POST /api/data {op:'delete', collection, id}        -> { ok }
 import { requireUser, json, readJson } from '../lib/auth.js';
-import { store, readAll, upsert, removeRow, nextOrderId, clean, TABS } from '../lib/store.js';
+import { store, readAll, upsert, removeRow, nextOrderId, clean, TABS, nameReceiptFile } from '../lib/store.js';
 import { randomUUID } from 'node:crypto';
 
 export default async function handler(req, res) {
@@ -40,13 +40,8 @@ export default async function handler(req, res) {
     }
     await upsert(s, collection, rec);
 
-    // Give the receipt file a readable name in Drive, e.g. "2026-10-10 Patel Brothers $84.20 (#1001, #1002).jpg"
-    if (collection === 'expenses' && rec.receiptId) {
-      const ext = rec.receiptType === 'application/pdf' ? 'pdf' : 'jpg';
-      const orders = rec.orderIds.length ? ` (${rec.orderIds.map((o) => '#' + o).join(', ')})` : '';
-      const name = `${rec.date || now.slice(0, 10)} ${rec.vendor || rec.category || 'Receipt'} $${Number(rec.amount || 0).toFixed(2)}${orders}.${ext}`;
-      s.drive.files.update({ fileId: rec.receiptId, requestBody: { name: name.replace(/[\\/]/g, '-') } }).catch(() => {});
-    }
+    // Give the receipt file a readable name in Drive
+    if (collection === 'expenses' && rec.receiptId) nameReceiptFile(s, rec);
     return json(res, 200, { id: rec.id });
   } catch (e) {
     if (e.setup) return json(res, 503, { setup: true, isOwner: user.isOwner });
