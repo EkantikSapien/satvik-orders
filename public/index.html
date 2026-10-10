@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#EFE4D0">
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Satvik">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Satvik Orders</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -269,7 +275,7 @@ const FARSAN = ['Sev khamani','Khaman dhokla','Khandvi','Patra','Besan laddu','M
 const STATUSES = [['enquiry','Enquiry'],['confirmed','Confirmed'],['done','Done'],['cancelled','Cancelled']];
 
 const S = { orders:[], expenses:[], payments:[], loaded:{orders:false,expenses:false,payments:false},
-  tab:'dash', stack:[], cal:{y:new Date().getFullYear(), m:new Date().getMonth(), sel:null}, dperiod:'month', ofilter:'upcoming', otype:'all', q:'', confirm:null, names:{}, me:null,
+  tab:(['dash','cal','orders','expenses','payments'].includes(new URLSearchParams(location.search).get('tab')) ? new URLSearchParams(location.search).get('tab') : 'dash'), stack:[], cal:{y:new Date().getFullYear(), m:new Date().getMonth(), sel:null}, dperiod:'month', ofilter:'upcoming', otype:'all', q:'', confirm:null, names:{}, me:null,
   canWrite:true, assets:true, upload:null, status:'loading', links:{}, clientId:null, missing:[] };
 
 const $ = s => document.querySelector(s);
