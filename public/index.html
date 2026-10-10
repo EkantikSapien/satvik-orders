@@ -178,6 +178,19 @@ table.it td.n,table.it th.n{text-align:right}
 .ac-list .btn{text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px}
 .ac-list .btn small{font-weight:500;opacity:.8}
 
+/* production totals (Orders tab) */
+.prep{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+.prep-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.prep-head h2.sec{margin:0}
+.prep-head .chips{margin:0}
+.prep-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.prep-item{background:var(--bg);border-radius:12px;padding:10px 12px;min-width:0}
+.prep-item small{display:block;font-size:12.5px;color:var(--muted);font-weight:600;line-height:1.25}
+.prep-item strong{display:block;font-size:24px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.prep-item em{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:2px}
+.prep-note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.prep .list{margin-top:12px}
+@media (max-width:420px){.prep-item strong{font-size:20px}.prep-item{padding:9px 10px}}
 /* calendar */
 .cal-nav{display:flex;align-items:center;gap:8px;margin:20px 0 12px}
 .cal-nav h1{flex:1;margin:0;font-family:var(--display);font-weight:650;font-size:26px;line-height:1.1}
@@ -275,7 +288,7 @@ const FARSAN = ['Sev khamani','Khaman dhokla','Khandvi','Patra','Besan laddu','M
 const STATUSES = [['enquiry','Enquiry'],['confirmed','Confirmed'],['done','Done'],['cancelled','Cancelled']];
 
 const S = { orders:[], expenses:[], payments:[], loaded:{orders:false,expenses:false,payments:false},
-  tab:(['dash','cal','orders','expenses','payments'].includes(new URLSearchParams(location.search).get('tab')) ? new URLSearchParams(location.search).get('tab') : 'dash'), stack:[], cal:{y:new Date().getFullYear(), m:new Date().getMonth(), sel:null}, dperiod:'month', ofilter:'upcoming', otype:'all', q:'', confirm:null, names:{}, me:null,
+  prepDay:'today', tab:(['dash','cal','orders','expenses','payments'].includes(new URLSearchParams(location.search).get('tab')) ? new URLSearchParams(location.search).get('tab') : 'dash'), stack:[], cal:{y:new Date().getFullYear(), m:new Date().getMonth(), sel:null}, dperiod:'month', ofilter:'upcoming', otype:'all', q:'', confirm:null, names:{}, me:null,
   canWrite:true, assets:true, upload:null, status:'loading', links:{}, clientId:null, missing:[] };
 
 const $ = s => document.querySelector(s);
@@ -546,6 +559,48 @@ function viewCalendar(){
     ${w ? `<div class="btns" style="margin-top:12px"><button class="btn" data-act="new-order" data-id="catering" data-date="${sel}">+ Catering on this day</button><button class="btn warn" data-act="new-order" data-id="farsan" data-date="${sel}">+ Farsan/Sweet on this day</button></div>` : ''}`;
 }
 
+/* ---------- how much to make (Orders tab) ---------- */
+const PREP = [
+  { key:'sev', label:'Sev khamani', match:/\bsev\s*kham/i },
+  { key:'vatidar', label:'Vatidar khaman', match:/\bvati\w*\s*(na\s*)?kham/i },
+  { key:'nylon', label:'Nylon khaman', match:/\bnylon\s*kham/i },
+];
+const addDays = (iso, n) => { const d = toD(iso); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); };
+/** Kilos of each farsan to make across the given orders: farsan items in kg, plus "2kg" / "(14.5 kg)" written in a catering menu. */
+function prepTotals(orders){
+  const out = Object.fromEntries(PREP.map(p => [p.key, { kg:0, orders:new Set(), noQty:[] }]));
+  for (const o of orders){
+    if (o.type === 'farsan'){
+      for (const i of (o.items||[])){
+        const p = PREP.find(x => x.match.test(i.name||'')); if (!p) continue;
+        if ((i.unit||'kg') === 'kg'){ out[p.key].kg += num(i.qty); out[p.key].orders.add(o.id); }
+        else out[p.key].noQty.push(o);
+      }
+    } else {
+      for (const line of String(o.menu||'').split('\n')){
+        const p = PREP.find(x => x.match.test(line)); if (!p) continue;
+        const m = line.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilo|kilos|g|gm|grams?)\b/i);
+        if (m){ const kg = /^g/i.test(m[2]) ? num(m[1]) / 1000 : num(m[1]); out[p.key].kg += kg; out[p.key].orders.add(o.id); }
+        else out[p.key].noQty.push(o);
+      }
+    }
+  }
+  return out;
+}
+const kgText = n => (Math.round(n * 100) / 100).toLocaleString('en-AU', { maximumFractionDigits:2 }) + ' kg';
+function prepPanel(){
+  const t = todayISO(), day = S.prepDay === 'tomorrow' ? addDays(t, 1) : t;
+  const orders = S.orders.filter(o => o.date === day && o.status !== 'cancelled').sort((a,b)=> (a.time||'99').localeCompare(b.time||'99'));
+  const tot = prepTotals(orders);
+  const chip = (k,l) => `<button class="chip" data-act="prepday" data-id="${k}" aria-pressed="${S.prepDay===k}">${l}</button>`;
+  const noQty = [...new Map(PREP.flatMap(p => tot[p.key].noQty.map(o => [o.id + p.key, { o, p }]))).values()];
+  return `<section class="prep" aria-label="What to make">
+    <div class="prep-head"><h2 class="sec">To make · ${esc(fmtDate(day,{weekday:'long',day:'numeric',month:'short'}))}</h2><div class="chips">${chip('today','Today')}${chip('tomorrow','Tomorrow')}</div></div>
+    <div class="prep-grid">${PREP.map(p => { const x = tot[p.key]; return `<div class="prep-item"><small>${p.label}</small><strong>${kgText(x.kg)}</strong><em>${x.orders.size ? `${x.orders.size} order${x.orders.size>1?'s':''}` : 'none'}</em></div>`; }).join('')}</div>
+    ${noQty.length ? `<p class="prep-note">Not counted, no kg given: ${noQty.map(({o,p}) => `#${esc(o.id)} ${esc(o.customer||'')} (${esc(p.label.toLowerCase())})`).join(', ')}</p>` : ''}
+    ${orders.length ? `<div class="list">${orders.map(orderRow).join('')}</div>` : `<p class="prep-note">No orders ${S.prepDay === 'tomorrow' ? 'tomorrow' : 'today'}.</p>`}
+  </section>`;
+}
 function viewOrders(){
   const t = todayISO(), q = S.q.trim().toLowerCase();
   let list = S.orders.slice();
@@ -557,6 +612,8 @@ function viewOrders(){
   if (q) list = list.filter(o => [o.id, o.customer, o.phone, o.occasion, o.menu, o.notes, ...(o.items||[]).map(i=>i.name)].join(' ').toLowerCase().includes(q));
   const chip = (k,l,cur,act) => `<button class="chip" data-act="${act}" data-id="${k}" aria-pressed="${cur===k}">${l}</button>`;
   return `<h1 class="view">Orders</h1>
+    ${prepPanel()}
+    <div style="height:14px"></div>
     <div class="chips">${chip('upcoming','Upcoming',S.ofilter,'ofilter')}${chip('owing','Owing',S.ofilter,'ofilter')}${chip('past','Past',S.ofilter,'ofilter')}${chip('all','All',S.ofilter,'ofilter')}
       <span style="width:8px"></span>${chip('all','Both types',S.otype,'otype')}${chip('catering','Catering',S.otype,'otype')}${chip('farsan','Farsan/Sweet',S.otype,'otype')}</div>
     <input class="search" id="order-search" type="search" placeholder="Search name, phone, dish or order #" value="${esc(S.q)}" aria-label="Search orders">
@@ -933,6 +990,7 @@ document.addEventListener('click', async ev => {
     case 'filter-owing': S.tab = 'orders'; S.ofilter = 'owing'; renderMain(); break;
     case 'ofilter': S.ofilter = id; renderMain(); break;
     case 'otype': S.otype = id; renderMain(); break;
+    case 'prepday': S.prepDay = id; renderMain(); break;
     case 'new-menu': openSheet({kind:'menu'}); break;
     case 'new-order': S.stack = []; openSheet({kind:'order-form', type:id, date:el.dataset.date||''}); break;
     case 'dperiod': S.dperiod = id; renderMain(); break;
