@@ -53,7 +53,8 @@ const validDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const validTime = (s) => /^\d{2}:\d{2}$/.test(String(s || ''));
 
 const HELP = 'Hi! To add an order, send *catering* or *farsan* and I\'ll send a form to copy, fill in and send back.\n\n'
-  + 'To record a payment, send e.g. *Paid $500 cash #1004*';
+  + 'To record a payment, send e.g. *Paid $500 cash #1004*\n\n'
+  + 'To mark orders fully paid: *paid in full #1004 #1006* or *paid in full before today*';
 
 async function handleText(from, who, text, msgId) {
   const s = await store();
@@ -106,6 +107,34 @@ async function handleText(from, who, text, msgId) {
     ];
     if (res.missing) lines.push('', `Check: ${res.missing}`);
     lines.push('', `Fix anything in the app: ${APP_URL()}`);
+    return reply(from, lines.join('\n'));
+  }
+
+  if (res.kind === 'payfull') {
+    if (res.missing) return reply(from, res.missing);
+    const targets = res.ids.length
+      ? res.ids.map((id) => data.orders.find((o) => o.id === id) || { id, missing: true })
+      : data.orders.filter((o) => o.date && o.date < res.before && o.status !== 'cancelled').sort((a, b) => a.date.localeCompare(b.date));
+    const done = [], skipped = [];
+    let n = 0, total = 0;
+    for (const o of targets) {
+      if (o.missing) { skipped.push(`#${o.id} (no such order)`); continue; }
+      if (o.status === 'cancelled') { skipped.push(`#${o.id} (cancelled)`); continue; }
+      const owing = Math.round((orderTotal(o) - paid(o.id)) * 100) / 100;
+      if (orderTotal(o) <= 0) { skipped.push(`#${o.id} ${o.customer} (total is $0, add prices first)`); continue; }
+      if (owing <= 0.005) continue;
+      const rec = clean('payments', { orderId: o.id, amount: owing, method: res.method, date: res.date, note: ['Paid in full', res.method === 'Other' ? 'method not given' : '', 'via WhatsApp'].filter(Boolean).join(' · ') });
+      rec.id = 'p-' + msgId.slice(-10).replace(/[^A-Za-z0-9]/g, '') + '-' + (++n);
+      rec.createdAt = new Date().toISOString();
+      rec.createdBy = `${who} (WhatsApp)`;
+      rec.source = msgId;
+      await upsert(s, 'payments', rec);
+      done.push(`#${o.id} ${o.customer} ${money(owing)}`); total += owing;
+    }
+    const lines = done.length
+      ? [`💰 Marked ${done.length} order${done.length > 1 ? 's' : ''} as paid in full (${money(total)}${res.method !== 'Other' ? ' ' + res.method.toLowerCase() : ''}):`, ...done]
+      : ['Nothing to record. Those orders are already fully paid.'];
+    if (skipped.length) lines.push('', 'Skipped:', ...skipped);
     return reply(from, lines.join('\n'));
   }
 
